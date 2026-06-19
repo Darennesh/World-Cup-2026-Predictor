@@ -1,0 +1,58 @@
+# 2026 FIFA World Cup format & structure
+# 48 teams, 12 groups of 4. Advance: top 2 of each group + 8 best 3rd-placed
+# teams -> Round of 32 -> R16 -> QF -> SF -> Final.
+#
+# NOTE: group membership below is a TEMPLATE. Replace `teams` lists with the
+# actual draw once finalised, and fill `results` as 2026 group games are played.
+
+format:
+  n_teams: 48
+  n_groups: 12
+  teams_per_group: 4
+  advance_per_group: 2
+  best_third_advancing: 8
+  knockout_rounds: [R32, R16, QF, SF, Final]
+
+# Group standings tiebreakers, applied in order (FIFA regulations):
+group_tiebreakers:
+  - points
+  - goal_difference
+  - goals_for
+  - head_to_head_points
+  - head_to_head_goal_difference
+  - head_to_head_goals_for
+  - fair_play_points # fewer disciplinary points ranks higher
+  - drawing_of_lots # random; resolve with a fixed seed in sim
+
+host_cities:
+  # city: [country, altitude_m, climate]
+  Mexico City: [Mexico, 2240, hot_altitude]
+  Guadalajara: [Mexico, 1566, hot_altitude]
+  Monterrey: [Mexico, 540, hot_dry]
+  Atlanta: [USA, 320, hot_humid]
+  Dallas: [USA, 130, hot]
+  Houston: [USA, 30, hot_humid]
+  Kansas City: [USA, 270, temperate]
+  Los Angeles: [USA, 90, mild]
+  Miami: [USA, 2, hot_humid]
+  New York: [USA, 10, temperate]
+  Philadelphia: [USA, 12, temperate]
+  San Francisco: [USA, 16, mild]
+  Seattle: [USA, 50, mild]
+  Boston: [USA, 40, temperate]
+  Toronto: [Canada, 76, temperate]
+  Vancouver: [Canada, 0, mild]
+
+groups:
+  A: { teams: [Mexico, TBD_A2, TBD_A3, TBD_A4], results: [] }
+  B: { teams: [Canada, TBD_B2, TBD_B3, TBD_B4], results: [] }
+  C: { teams: [USA, TBD_C2, TBD_C3, TBD_C4], results: [] }
+  D: { teams: [TBD_D1, TBD_D2, TBD_D3, TBD_D4], results: [] }
+  E: { teams: [TBD_E1, TBD_E2, TBD_E3, TBD_E4], results: [] }
+  F: { teams: [TBD_F1, TBD_F2, TBD_F3, TBD_F4], results: [] }
+  G: { teams: [TBD_G1, TBD_G2, TBD_G3, TBD_G4], results: [] }
+  H: { teams: [TBD_H1, TBD_H2, TBD_H3, TBD_H4], results: [] }
+  I: { teams: [TBD_I1, TBD_I2, TBD_I3, TBD_I4], results: [] }
+  J: { teams: [TBD_J1, TBD_J2, TBD_J3, TBD_J4], results: [] }
+  K: { teams: [TBD_K1, TBD_K2, TBD_K3, TBD_K4], results: [] }
+  L: { teams: [TBD_L1, TBD_L2, TBD_L3, TBD_L4], results: [] }

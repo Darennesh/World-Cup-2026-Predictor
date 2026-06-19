@@ -1,0 +1,28 @@
+# Data
+data/raw/*
+data/processed/*
+!data/**/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Models / artifacts
+models_store/
+*.pkl
+*.joblib
+
+# Generated report artifacts (the deployable copy lives in public/, which IS tracked)
+reports/
+
+# Vercel
+.vercel/
+
+# OS / editor
+.DS_Store
+.vscode/
