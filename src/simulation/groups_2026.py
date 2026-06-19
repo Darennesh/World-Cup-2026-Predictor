@@ -24,7 +24,7 @@ from src.ratings.bayesian import _is_2026_wc
 
 
 def _config_groups() -> dict[str, list[str]] | None:
-    cfg = yaml.safe_load((CONFIG_DIR / "tournament_2026.yaml").read_text())
+    cfg = yaml.safe_load((CONFIG_DIR / "tournament_2026.yaml").read_text(encoding="utf-8"))
     groups = {g: v["teams"] for g, v in cfg["groups"].items()}
     if any(any(str(t).startswith("TBD") for t in teams)
            for teams in groups.values()):

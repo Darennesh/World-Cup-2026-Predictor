@@ -37,7 +37,7 @@ DEMO_GROUPS = {
 
 
 def load_groups() -> dict[str, list[str]]:
-    cfg = yaml.safe_load((CONFIG_DIR / "tournament_2026.yaml").read_text())
+    cfg = yaml.safe_load((CONFIG_DIR / "tournament_2026.yaml").read_text(encoding="utf-8"))
     groups = {g: v["teams"] for g, v in cfg["groups"].items()}
     # If any group still has TBD placeholders, use the demo set instead.
     if any(any(str(t).startswith("TBD") for t in teams)

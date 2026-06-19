@@ -30,6 +30,8 @@ import numpy as np
 
 from src.simulation.sampler import ScoreSampler
 from src.simulation.standings import Group, TeamRecord, select_best_thirds
+from src.simulation.bracket_2026 import (build_bracket as build_bracket_2026,
+                                         is_official_layout)
 
 # Standard round labels keyed by the number of teams still in the bracket.
 _ROUND_BY_SIZE = {64: "R64", 32: "R32", 16: "R16", 8: "QF", 4: "SF",
@@ -61,6 +63,11 @@ class Tournament:
         # (2*groups + thirds) is a power of two. For the full 2026 format
         # (12 groups, 8 thirds) this leaves 8 unchanged -> a 32-team bracket.
         self.best_thirds = self._fit_thirds(len(groups), best_thirds)
+        # Use the official FIFA R32 structure only for the real 12-group A..L
+        # layout with the full 8 best-thirds; otherwise fall back to generic
+        # seeding (e.g. for the smaller demo tournaments used in tests).
+        self.use_official_bracket = (is_official_layout(groups.keys())
+                                     and self.best_thirds == 8)
 
     @staticmethod
     def _fit_thirds(n_groups: int, want: int) -> int:
@@ -144,6 +151,7 @@ class Tournament:
     # ---- single simulation ---------------------------------------------
     def simulate_once(self, rng: np.random.Generator) -> dict[str, str]:
         winners, runners, thirds_records = {}, {}, []
+        third_group: dict[str, str] = {}     # team -> its group letter
         for name, teams in self.group_defs.items():
             g = self._play_group(name, teams, rng)
             table = g.standings(rng)
@@ -151,10 +159,17 @@ class Tournament:
             runners[name] = table[1].team
             if len(table) >= 3:
                 thirds_records.append(table[2])
+                third_group[table[2].team] = name
 
         best = select_best_thirds(thirds_records, self.best_thirds, rng)
-        bracket = self.seed_round_of_32(winners, runners,
-                                        [r.team for r in best])
+
+        if self.use_official_bracket:
+            # Official FIFA structure: pass (group_letter, team) for each third.
+            thirds = [(third_group[r.team], r.team) for r in best]
+            bracket = build_bracket_2026(winners, runners, thirds)
+        else:
+            bracket = self.seed_round_of_32(winners, runners,
+                                            [r.team for r in best])
         return self._run_knockout(bracket, rng)
 
     # ---- Monte Carlo ----------------------------------------------------

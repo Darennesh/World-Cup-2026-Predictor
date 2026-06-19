@@ -72,6 +72,17 @@ class GBMModel:
         self.home_adv = elo.home_adv
         return self
 
+    def apply_adjustments(self, adjustments: dict[str, float]) -> "GBMModel":
+        """Shift team Elo states by curated team-news deltas (injuries, etc.).
+
+        Mutates this model's states in place and returns self, so downstream
+        predictions reflect the adjusted strengths.
+        """
+        from src.ratings.adjustments import apply_to_states
+        if adjustments:
+            self.states = apply_to_states(self.states, adjustments)
+        return self
+
     # ---- feature construction for an arbitrary fixture -----------------
     def _make_features(self, home: str, away: str, neutral: bool) -> pd.DataFrame:
         sh, sa = self.states[home], self.states[away]

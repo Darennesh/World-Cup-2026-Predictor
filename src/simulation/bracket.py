@@ -88,6 +88,7 @@ def _tie_probability(tt: Tournament, a: str, b: str) -> float:
 def build_expected_bracket(tt: Tournament) -> ExpectedBracket:
     """Compute the modal bracket and per-game probabilities for a Tournament."""
     winners, runners, thirds = {}, {}, []
+    third_group: dict[str, str] = {}     # team -> group letter
     standings: dict[str, list[str]] = {}
     for name, teams in tt.group_defs.items():
         order = _expected_group_order(tt, teams)
@@ -96,6 +97,7 @@ def build_expected_bracket(tt: Tournament) -> ExpectedBracket:
         runners[name] = order[1]
         if len(order) >= 3:
             thirds.append(order[2])
+            third_group[order[2]] = name
 
     # Best thirds by the same expected-quality proxy: use posterior win prob vs
     # an average opponent is overkill; rank thirds by their group order strength
@@ -111,7 +113,12 @@ def build_expected_bracket(tt: Tournament) -> ExpectedBracket:
     best_thirds = sorted(thirds, key=lambda t: third_strength.get(t, 0.0),
                          reverse=True)[: tt.best_thirds]
 
-    bracket = tt.seed_round_of_32(winners, runners, best_thirds)
+    if tt.use_official_bracket:
+        from src.simulation.bracket_2026 import build_bracket as _official
+        bracket = _official(winners, runners,
+                            [(third_group[t], t) for t in best_thirds])
+    else:
+        bracket = tt.seed_round_of_32(winners, runners, best_thirds)
     labels = round_labels(len(bracket))   # e.g. [R32, R16, QF, SF, Final, Champion]
 
     games_by_round: dict[str, list[Game]] = {}

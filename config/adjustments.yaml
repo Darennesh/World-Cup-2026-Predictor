@@ -1,0 +1,16 @@
+# Team-news rating adjustments (injuries, suspensions, returns).
+#
+# Values are Elo-point deltas applied to a team's strength BEFORE forecasting,
+# expressing "this squad is stronger/weaker than its results so far suggest".
+# Positive = stronger (e.g. star returns); negative = weaker (key player out).
+# Rough guide: a top player ≈ 20-50 Elo; a goalkeeper or talisman can be more.
+#
+# Edit freely as team news breaks, then re-run scripts/09_group_forecast.py or
+# scripts/build_site.py to refresh predictions. Leave `adjustments` empty for
+# no changes.
+
+adjustments:
+  # Spain: -30      # example: first-choice midfielder ruled out
+  # Portugal: 15    # example: forward back to full fitness
+
+note: "No active team-news adjustments. Add entries above as injuries/returns are confirmed."

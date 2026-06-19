@@ -26,11 +26,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import PROCESSED_DIR, ROOT  # noqa: E402
 from src.models.gbm import GBMModel  # noqa: E402
-from src.ratings.bayesian import fit_prior_then_update  # noqa: E402
+from src.ratings.bayesian import (fit_prior_then_update,  # noqa: E402
+                                  group_results_2026)
+from src.ratings.adjustments import load_adjustments  # noqa: E402
 from src.simulation.sampler import ScoreSampler  # noqa: E402
 from src.simulation.engine import Tournament  # noqa: E402
 from src.simulation.groups_2026 import resolve_groups  # noqa: E402
 from src.simulation.bracket import build_expected_bracket  # noqa: E402
+from src.simulation.group_forecast import (forecast_group,  # noqa: E402
+                                           played_results_for)
 from src.visualization.plots import (plot_bracket, plot_champion_bar,  # noqa: E402
                                      plot_round_heatmap)
 
@@ -57,6 +61,37 @@ def _games_table_html(games_df: pd.DataFrame) -> str:
             "<tbody>" + "".join(rows) + "</tbody></table>")
 
 
+def _group_forecast_html(forecasts: list) -> str:
+    """Render per-group remaining-fixture predictions and advance odds."""
+    blocks = []
+    for fc in forecasts:
+        fix_rows = "".join(
+            f"<tr><td>{m.home}</td>"
+            f"<td style='text-align:center'>{m.exp_home:.1f}&ndash;{m.exp_away:.1f}</td>"
+            f"<td>{m.away}</td>"
+            f"<td style='text-align:right'>{m.p_home:.0%}/{m.p_draw:.0%}/{m.p_away:.0%}</td></tr>"
+            for m in fc.remaining
+        )
+        adv = sorted(fc.advance_prob.items(), key=lambda kv: kv[1], reverse=True)
+        adv_rows = "".join(
+            f"<tr><td>{t}</td>"
+            f"<td style='text-align:right'>{p:.0%}</td>"
+            f"<td style='text-align:right'>{fc.finish_first[t]:.0%}</td></tr>"
+            for t, p in adv
+        )
+        fixtures = (f"<table><thead><tr><th>Home</th><th>xG</th><th>Away</th>"
+                    f"<th>W/D/L</th></tr></thead><tbody>{fix_rows}</tbody></table>"
+                    if fc.remaining else "<p><i>All matches played.</i></p>")
+        blocks.append(
+            f"<div style='flex:1 1 460px'><h3 style='margin:.2rem 0;color:#0b3d2e'>"
+            f"Group {fc.name}</h3>{fixtures}"
+            f"<table style='margin-top:6px'><thead><tr><th>Team</th>"
+            f"<th>Advance</th><th>Win grp</th></tr></thead><tbody>{adv_rows}"
+            f"</tbody></table></div>"
+        )
+    return f"<div style='display:flex;flex-wrap:wrap;gap:18px'>{''.join(blocks)}</div>"
+
+
 def main() -> None:
     n_sims = 30_000
     if "--sims" in sys.argv:
@@ -68,6 +103,12 @@ def main() -> None:
     elo, update = fit_prior_then_update(matches)
     print(f"Fitting model (2026 group matches applied: {update.n_group_matches}) ...")
     model = GBMModel().fit(features, matches)
+
+    # Apply any curated team-news (injury/return) adjustments.
+    adjustments = load_adjustments()
+    if adjustments:
+        model.apply_adjustments(adjustments)
+        print(f"Applied team-news adjustments: {adjustments}")
 
     groups, source = resolve_groups(matches, elo)
     known = set(model.teams)
@@ -83,6 +124,14 @@ def main() -> None:
 
     print("Building expected bracket with per-game probabilities ...")
     bracket = build_expected_bracket(tt)
+
+    print("Forecasting remaining group-stage matches ...")
+    all_2026 = group_results_2026(matches)
+    group_forecasts = [
+        forecast_group(model, name, teams,
+                       played_results_for(teams, all_2026), n_sims=4000)
+        for name, teams in groups.items()
+    ]
 
     # Persist per-game predictions.
     games = [{"round": g.round, "home": g.home, "away": g.away,
@@ -148,9 +197,15 @@ def main() -> None:
 <p class="sub" style="color:var(--muted)">Group layout: {source} &middot;
  {n_sims:,} Monte Carlo simulations &middot; last updated {updated}</p>
 <section><h2>Expected knockout bracket</h2>{_img_tag(p_bracket)}</section>
+<section><h2>Live group-stage forecast</h2>
+ <p style="color:var(--muted);margin-top:0">Predicted result of each remaining
+  group fixture (expected goals and win/draw/loss), with each team's chance of
+  advancing. Reflects current form blended with long-run strength, so strong
+  sides that stumbled early are still favoured to recover.</p>
+ {_group_forecast_html(group_forecasts)}</section>
 <section><h2>Title probability</h2>{_img_tag(p_bar)}</section>
 <section><h2>Reach-round probabilities</h2>{_img_tag(p_heat)}</section>
-<section><h2>Per-game predictions</h2>{_games_table_html(games_df)}</section>
+<section><h2>Per-game knockout predictions</h2>{_games_table_html(games_df)}</section>
 </main>
 <footer>
  Built with a LightGBM goal model + Monte Carlo tournament simulation.

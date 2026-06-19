@@ -44,15 +44,15 @@ host_cities:
   Vancouver: [Canada, 0, mild]
 
 groups:
-  A: { teams: [Mexico, TBD_A2, TBD_A3, TBD_A4], results: [] }
-  B: { teams: [Canada, TBD_B2, TBD_B3, TBD_B4], results: [] }
-  C: { teams: [USA, TBD_C2, TBD_C3, TBD_C4], results: [] }
-  D: { teams: [TBD_D1, TBD_D2, TBD_D3, TBD_D4], results: [] }
-  E: { teams: [TBD_E1, TBD_E2, TBD_E3, TBD_E4], results: [] }
-  F: { teams: [TBD_F1, TBD_F2, TBD_F3, TBD_F4], results: [] }
-  G: { teams: [TBD_G1, TBD_G2, TBD_G3, TBD_G4], results: [] }
-  H: { teams: [TBD_H1, TBD_H2, TBD_H3, TBD_H4], results: [] }
-  I: { teams: [TBD_I1, TBD_I2, TBD_I3, TBD_I4], results: [] }
-  J: { teams: [TBD_J1, TBD_J2, TBD_J3, TBD_J4], results: [] }
-  K: { teams: [TBD_K1, TBD_K2, TBD_K3, TBD_K4], results: [] }
-  L: { teams: [TBD_L1, TBD_L2, TBD_L3, TBD_L4], results: [] }
+  A: { teams: [Mexico, South Africa, South Korea, Czech Republic], results: [] }
+  B: { teams: [Canada, Bosnia and Herzegovina, Qatar, Switzerland], results: [] }
+  C: { teams: [Brazil, Morocco, Haiti, Scotland], results: [] }
+  D: { teams: [United States, Paraguay, Australia, Turkey], results: [] }
+  E: { teams: [Germany, Curaçao, Ivory Coast, Ecuador], results: [] }
+  F: { teams: [Netherlands, Japan, Sweden, Tunisia], results: [] }
+  G: { teams: [Belgium, Egypt, Iran, New Zealand], results: [] }
+  H: { teams: [Spain, Cape Verde, Saudi Arabia, Uruguay], results: [] }
+  I: { teams: [France, Senegal, Iraq, Norway], results: [] }
+  J: { teams: [Argentina, Algeria, Austria, Jordan], results: [] }
+  K: { teams: [Portugal, DR Congo, Uzbekistan, Colombia], results: [] }
+  L: { teams: [England, Croatia, Ghana, Panama], results: [] }
