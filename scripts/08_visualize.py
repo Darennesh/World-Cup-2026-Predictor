@@ -35,10 +35,16 @@ from src.simulation.groups_2026 import resolve_groups  # noqa: E402
 from src.simulation.bracket import build_expected_bracket  # noqa: E402
 from src.simulation.group_forecast import (forecast_group,  # noqa: E402
                                            played_results_for)
+from src.evaluation.tracker import (update_log, summarize,  # noqa: E402
+                                    OUTCOME_LABELS, PREDICTIONS_START)
 from src.visualization.plots import (plot_bracket, plot_champion_bar,  # noqa: E402
                                      plot_round_heatmap)
 
 REPORTS = ROOT / "reports"
+PUBLIC = ROOT / "public"
+# The track record is persisted (and publicly served) so predictions stay
+# locked across daily rebuilds and accumulate over the tournament.
+TRACK_LOG = PUBLIC / "prediction_log.csv"
 
 
 def _img_tag(path: Path) -> str:
@@ -92,6 +98,59 @@ def _group_forecast_html(forecasts: list) -> str:
     return f"<div style='display:flex;flex-wrap:wrap;gap:18px'>{''.join(blocks)}</div>"
 
 
+def _track_record_html(log: pd.DataFrame, stats: dict) -> str:
+    """Render the model's locked predictions vs actual results + summary stats."""
+    if log.empty or stats.get("n", 0) == 0:
+        return ("<p style='color:#666'>No completed group-stage fixtures logged "
+                "yet &mdash; the track record will populate as matches are played.</p>")
+
+    # Summary cards.
+    cards = [
+        ("Matches scored", f"{stats['n']}"),
+        ("Outcome accuracy", f"{stats['hit_rate']:.0%}"),
+        ("Avg RPS (lower=better)", f"{stats['avg_rps']:.3f}"),
+        ("vs base-rate RPS", f"{stats['base_rps']:.3f}"),
+        ("Exact scoreline", f"{stats['exact_score']:.0%}"),
+    ]
+    card_html = "".join(
+        f"<div style='flex:1 1 130px;background:#f3f7f4;border:1px solid #e0ebe4;"
+        f"border-radius:8px;padding:10px 12px'>"
+        f"<div style='font-size:1.3rem;font-weight:700;color:#0b3d2e'>{v}</div>"
+        f"<div style='font-size:.78rem;color:#555'>{k}</div></div>"
+        for k, v in cards
+    )
+
+    # Per-fixture table, most recent first.
+    rows = []
+    for r in log.sort_values("date", ascending=False).itertuples(index=False):
+        pred_lbl = OUTCOME_LABELS[int(r.pred_outcome)]
+        tick = ("<span style='color:#1b7837'>&#10004;</span>" if r.correct
+                else "<span style='color:#b2182b'>&#10008;</span>")
+        conf = max(r.p_home, r.p_draw, r.p_away)
+        rows.append(
+            f"<tr><td>{pd.Timestamp(r.date).strftime('%b %d')}</td>"
+            f"<td style='text-align:right'>{r.home_team}</td>"
+            f"<td style='text-align:center;color:#888'>"
+            f"{int(r.pred_home_goals)}&ndash;{int(r.pred_away_goals)}</td>"
+            f"<td>{r.away_team}</td>"
+            f"<td style='text-align:center'>{r.p_home:.0%}/{r.p_draw:.0%}/{r.p_away:.0%}</td>"
+            f"<td>{pred_lbl} <span style='color:#999'>({conf:.0%})</span></td>"
+            f"<td style='text-align:center;font-weight:700'>"
+            f"{int(r.home_goals)}&ndash;{int(r.away_goals)}</td>"
+            f"<td style='text-align:center'>{tick}</td>"
+            f"<td style='text-align:right;color:#666'>{r.rps:.3f}</td></tr>"
+        )
+    table = (
+        "<table><thead><tr><th>Date</th><th style='text-align:right'>Home</th>"
+        "<th>xScore</th><th>Away</th><th>P(H/D/A)</th><th>Predicted</th>"
+        "<th>Actual</th><th>Hit</th><th>RPS</th></tr></thead><tbody>"
+        + "".join(rows) + "</tbody></table>"
+    )
+    cards_wrap = (f"<div style='display:flex;flex-wrap:wrap;gap:10px;"
+                  f"margin-bottom:14px'>{card_html}</div>")
+    return cards_wrap + table
+
+
 def main() -> None:
     n_sims = 30_000
     if "--sims" in sys.argv:
@@ -132,6 +191,14 @@ def main() -> None:
                        played_results_for(teams, all_2026), n_sims=4000)
         for name, teams in groups.items()
     ]
+
+    print("Updating model track record (walk-forward predictions vs actuals) ...")
+    track_log = update_log(matches, features, TRACK_LOG)
+    track_stats = summarize(track_log)
+    if track_stats.get("n"):
+        print(f"  Logged {track_stats['n']} fixtures | "
+              f"accuracy {track_stats['hit_rate']:.0%} | "
+              f"avg RPS {track_stats['avg_rps']:.3f}")
 
     # Persist per-game predictions.
     games = [{"round": g.round, "home": g.home, "away": g.away,
@@ -203,6 +270,12 @@ def main() -> None:
   advancing. Reflects current form blended with long-run strength, so strong
   sides that stumbled early are still favoured to recover.</p>
  {_group_forecast_html(group_forecasts)}</section>
+<section><h2>Model track record</h2>
+ <p style="color:var(--muted);margin-top:0">Every group-stage prediction the
+  model made <i>before</i> kickoff (walk-forward, no look-ahead), scored against
+  the actual result, <b>since the model went live on {PREDICTIONS_START:%b %d, %Y}</b>.
+  Locked when first made and updated as new matches finish.</p>
+ {_track_record_html(track_log, track_stats)}</section>
 <section><h2>Title probability</h2>{_img_tag(p_bar)}</section>
 <section><h2>Reach-round probabilities</h2>{_img_tag(p_heat)}</section>
 <section><h2>Per-game knockout predictions</h2>{_games_table_html(games_df)}</section>
