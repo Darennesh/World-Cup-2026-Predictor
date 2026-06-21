@@ -69,34 +69,47 @@ def _games_table_html(games_df: pd.DataFrame) -> str:
 
 
 def _group_forecast_html(forecasts: list) -> str:
-    """Render per-group remaining-fixture predictions and advance odds."""
+    """Render per-group remaining-fixture predictions and advance odds as cards."""
     blocks = []
     for fc in forecasts:
-        fix_rows = "".join(
-            f"<tr><td>{m.home}</td>"
-            f"<td style='text-align:center'>{m.exp_home:.1f}&ndash;{m.exp_away:.1f}</td>"
-            f"<td>{m.away}</td>"
-            f"<td style='text-align:right'>{m.p_home:.0%}/{m.p_draw:.0%}/{m.p_away:.0%}</td></tr>"
-            for m in fc.remaining
-        )
+        # Standings ordered by advancement probability; top 2 highlighted.
         adv = sorted(fc.advance_prob.items(), key=lambda kv: kv[1], reverse=True)
-        adv_rows = "".join(
-            f"<tr><td>{t}</td>"
-            f"<td style='text-align:right'>{p:.0%}</td>"
-            f"<td style='text-align:right'>{fc.finish_first[t]:.0%}</td></tr>"
-            for t, p in adv
-        )
-        fixtures = (f"<table><thead><tr><th>Home</th><th>xG</th><th>Away</th>"
-                    f"<th>W/D/L</th></tr></thead><tbody>{fix_rows}</tbody></table>"
-                    if fc.remaining else "<p><i>All matches played.</i></p>")
+        st_rows = ""
+        for i, (t, p) in enumerate(adv):
+            wg = fc.finish_first[t]
+            cls = " class='g-q'" if i < 2 else ""
+            st_rows += (
+                f"<tr{cls}><td class='g-team'>{t}</td>"
+                f"<td class='g-num'><div class='gbar'>"
+                f"<i style='width:{p*100:.0f}%'></i><b>{p:.0%}</b></div></td>"
+                f"<td class='g-num'><div class='gbar gw'>"
+                f"<i style='width:{wg*100:.0f}%'></i><b>{wg:.0%}</b></div></td></tr>"
+            )
+
+        if fc.remaining:
+            items = ""
+            for m in fc.remaining:
+                items += (
+                    f"<li><div class='gf-row'>"
+                    f"<span class='gf-h'>{m.home}</span>"
+                    f"<span class='gf-xg'>{m.exp_home:.1f}&ndash;{m.exp_away:.1f}</span>"
+                    f"<span class='gf-a'>{m.away}</span></div>"
+                    f"<div class='gf-wdl'>"
+                    f"{m.p_home:.0%} W &middot; {m.p_draw:.0%} D &middot; {m.p_away:.0%} L"
+                    f"</div></li>"
+                )
+            fixtures = (f"<div class='gf-sub'>Remaining fixtures</div>"
+                        f"<ul class='gf-list'>{items}</ul>")
+        else:
+            fixtures = "<p class='gf-done'>All matches played.</p>"
+
         blocks.append(
-            f"<div style='flex:1 1 460px'><h3 style='margin:.2rem 0;color:#0b3d2e'>"
-            f"Group {fc.name}</h3>{fixtures}"
-            f"<table style='margin-top:6px'><thead><tr><th>Team</th>"
-            f"<th>Advance</th><th>Win grp</th></tr></thead><tbody>{adv_rows}"
-            f"</tbody></table></div>"
+            f"<div class='gcard'><div class='gcard-h'>Group {fc.name}</div>"
+            f"<table class='gtable'><thead><tr><th>Team</th>"
+            f"<th>Advance</th><th>Win grp</th></tr></thead>"
+            f"<tbody>{st_rows}</tbody></table>{fixtures}</div>"
         )
-    return f"<div style='display:flex;flex-wrap:wrap;gap:18px'>{''.join(blocks)}</div>"
+    return f"<div class='ggrid'>{''.join(blocks)}</div>"
 
 
 def _upcoming_html(fixtures: list) -> str:
@@ -164,8 +177,8 @@ def _track_record_html(log: pd.DataFrame, stats: dict) -> str:
     rows = []
     for r in log.sort_values("date", ascending=False).itertuples(index=False):
         pred_lbl = OUTCOME_LABELS[int(r.pred_outcome)]
-        tick = ("<span style='color:#1b7837'>&#10004;</span>" if r.correct
-                else "<span style='color:#b2182b'>&#10008;</span>")
+        tick = ("<span class='pill pill-ok'>&#10004; hit</span>" if r.correct
+                else "<span class='pill pill-no'>&#10008; miss</span>")
         conf = max(r.p_home, r.p_draw, r.p_away)
         rows.append(
             f"<tr><td>{pd.Timestamp(r.date).strftime('%b %d')}</td>"
@@ -189,6 +202,61 @@ def _track_record_html(log: pd.DataFrame, stats: dict) -> str:
     cards_wrap = (f"<div style='display:flex;flex-wrap:wrap;gap:10px;"
                   f"margin-bottom:14px'>{card_html}</div>")
     return cards_wrap + table
+
+
+def _next_upcoming(fixtures: list):
+    """The next fixture to kick off (first future one, else the earliest)."""
+    now = datetime.now(timezone.utc)
+    future = [f for f in fixtures if f.kickoff_utc and f.kickoff_utc >= now]
+    if future:
+        return future[0]
+    return fixtures[0] if fixtures else None
+
+
+def _stat_card(value: str, label: str) -> str:
+    return (f"<div class='stat'><div class='stat-val'>{value}</div>"
+            f"<div class='stat-lbl'>{label}</div></div>")
+
+
+def _hero_stats_html(champion: str, champ_prob: float, track_stats: dict,
+                     next_match) -> str:
+    """At-a-glance KPI cards shown in the hero."""
+    cards = [_stat_card(f"{champ_prob:.0%}", f"{champion} to win")]
+    if track_stats.get("n"):
+        cards.append(_stat_card(f"{track_stats['hit_rate']:.0%}",
+                                "Outcome accuracy"))
+        cards.append(_stat_card(f"{track_stats['avg_rps']:.3f}",
+                                "Avg RPS (lower better)"))
+        cards.append(_stat_card(f"{track_stats['n']}", "Predictions scored"))
+    if next_match is not None:
+        cards.append(_stat_card(next_match.favourite if
+                                next_match.favourite != "Draw" else "Even",
+                                "Next-match pick"))
+    return f"<div class='stat-grid'>{''.join(cards)}</div>"
+
+
+def _next_match_html(f) -> str:
+    """A prominent card for the next fixture to be played."""
+    if f is None:
+        return ""
+    pick = ("an even contest" if f.favourite == "Draw"
+            else f"<b>{f.favourite}</b> favoured")
+    conf = max(f.p_home, f.p_draw, f.p_away)
+    return (
+        "<div class='nextmatch'>"
+        f"<div class='nm-when'>&#9201; {f.eat_label} &middot; Group {f.group}</div>"
+        f"<div class='nm-teams'>{f.home} <span class='nm-v'>vs</span> {f.away}</div>"
+        f"<div class='nm-line'>Model: {pick} ({conf:.0%}) &middot; "
+        f"expected score {f.exp_home:.1f}&ndash;{f.exp_away:.1f}</div>"
+        "<div class='nm-bar'>"
+        f"<span style='width:{f.p_home*100:.0f}%' class='seg seg-h' "
+        f"title='{f.home} win'>{f.p_home:.0%}</span>"
+        f"<span style='width:{f.p_draw*100:.0f}%' class='seg seg-d' "
+        f"title='Draw'>{f.p_draw:.0%}</span>"
+        f"<span style='width:{f.p_away*100:.0f}%' class='seg seg-a' "
+        f"title='{f.away} win'>{f.p_away:.0%}</span>"
+        "</div></div>"
+    )
 
 
 def main() -> None:
@@ -263,6 +331,7 @@ def main() -> None:
     updated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     champ_col = [c for c in pred.columns if c.startswith("P_")][-1]
     champ_prob = pred.iloc[0][champ_col]
+    next_match = _next_upcoming(upcoming)
     desc = (f"{bracket.champion} are the model's favourites to win the 2026 "
             f"FIFA World Cup ({champ_prob:.0%}). Full bracket, per-game "
             f"probabilities and Monte Carlo forecasts.")
@@ -279,62 +348,222 @@ def main() -> None:
 <meta name="twitter:title" content="2026 FIFA World Cup &mdash; Model Predictions">
 <meta name="twitter:description" content="{desc}">
 <style>
- :root {{ --green:#1b7837; --ink:#1a1a1a; --muted:#666; }}
+ :root {{
+   --green:#15803d; --green-d:#0b3d2e; --gold:#d9a400; --ink:#13211b;
+   --muted:#5d6b63; --line:#e6ece8; --bg:#f4f7f5; --card:#ffffff;
+   --h:#1b7837; --d:#9aa0a6; --a:#b2182b;
+   --head:#1e3a5f; --head-2:#3a6ea5; --head-soft:#eef2f8;
+ }}
  * {{ box-sizing: border-box; }}
- body {{ font-family: system-ui, -apple-system, Segoe UI, Arial, sans-serif;
-        margin: 0; color: var(--ink); background:#fafafa; line-height:1.5; }}
- header {{ background: linear-gradient(135deg,#0b3d2e,#1b7837); color:#fff;
-          padding: 28px 24px; }}
- header h1 {{ margin: 0 0 6px; font-size: 1.7rem; }}
- header p {{ margin: 0; opacity: .92; }}
- main {{ max-width: 1100px; margin: 0 auto; padding: 24px; }}
- section {{ background:#fff; border:1px solid #eee; border-radius:10px;
-           padding:18px; margin: 22px 0; box-shadow: 0 1px 3px rgba(0,0,0,.05); }}
- section h2 {{ margin-top: 0; font-size: 1.15rem; color: var(--green); }}
- img {{ max-width: 100%; height: auto; }}
- table {{ border-collapse: collapse; font-size: 13px; width: 100%; }}
- th, td {{ border: 1px solid #e6e6e6; padding: 5px 9px; }}
- th {{ background:#f3f7f4; text-align:left; }}
- .badge {{ display:inline-block; background:#fff; color:var(--green);
-          border-radius:999px; padding:2px 12px; font-weight:700;
+ html {{ scroll-behavior: smooth; }}
+ body {{ font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+        margin:0; color:var(--ink); background:var(--bg); line-height:1.55; }}
+
+ /* ---- Header / hero ---- */
+ header {{ background:linear-gradient(135deg,#0b3d2e 0%,#15803d 60%,#1ea34d 100%);
+          color:#fff; padding:34px 20px 30px; position:relative; overflow:hidden; }}
+ header::after {{ content:""; position:absolute; right:-60px; top:-60px;
+   width:240px; height:240px; border-radius:50%;
+   background:rgba(255,255,255,.06); }}
+ .hero-wrap {{ max-width:1140px; margin:0 auto; position:relative; z-index:1; }}
+ .eyebrow {{ text-transform:uppercase; letter-spacing:.14em; font-size:.72rem;
+            font-weight:700; opacity:.85; margin:0 0 6px; }}
+ header h1 {{ margin:0 0 6px; font-size:1.95rem; font-weight:800; }}
+ header .sub {{ margin:0; opacity:.9; font-size:.92rem; }}
+ .badge {{ display:inline-block; background:var(--gold); color:#3a2b00;
+          border-radius:999px; padding:3px 14px; font-weight:800;
           font-size:.95rem; }}
- footer {{ color: var(--muted); font-size: 12px; text-align:center;
-          padding: 24px; }}
- footer code {{ background:#eee; padding:1px 5px; border-radius:4px; }}
+ .stat-grid {{ display:grid; gap:12px; margin-top:22px;
+   grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }}
+ .stat {{ background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18);
+         border-radius:12px; padding:13px 15px; backdrop-filter:blur(3px); }}
+ .stat-val {{ font-size:1.5rem; font-weight:800; line-height:1.1; }}
+ .stat-lbl {{ font-size:.76rem; opacity:.9; margin-top:3px; }}
+
+ /* ---- Sticky nav ---- */
+ nav {{ position:sticky; top:0; z-index:20; background:rgba(255,255,255,.92);
+       backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }}
+ .nav-wrap {{ max-width:1140px; margin:0 auto; display:flex; gap:4px;
+   overflow-x:auto; padding:8px 16px; }}
+ nav a {{ white-space:nowrap; text-decoration:none; color:var(--muted);
+         font-size:.82rem; font-weight:600; padding:6px 12px; border-radius:8px; }}
+ nav a:hover {{ background:var(--bg); color:var(--head); }}
+
+ main {{ max-width:1140px; margin:0 auto; padding:8px 16px 24px; }}
+ section {{ background:var(--card); border:1px solid var(--line);
+   border-radius:16px; padding:20px 22px; margin:20px 0;
+   box-shadow:0 1px 2px rgba(16,40,28,.04),0 6px 18px rgba(16,40,28,.04);
+   scroll-margin-top:60px; }}
+ .sec-head {{ display:flex; align-items:baseline; gap:10px; margin:0 0 4px; }}
+ section h2 {{ margin:0; font-size:1.16rem; color:var(--head);
+   display:flex; align-items:center; gap:9px; }}
+ section h2::before {{ content:""; width:6px; height:20px; border-radius:3px;
+   background:linear-gradient(var(--head),var(--head-2)); display:inline-block; }}
+ .lead {{ color:var(--muted); margin:.35rem 0 14px; font-size:.9rem; }}
+ img {{ max-width:100%; height:auto; border-radius:8px; }}
+
+ /* ---- Tables ---- */
+ .tbl-scroll {{ overflow-x:auto; }}
+ table {{ border-collapse:collapse; font-size:13px; width:100%; min-width:520px; }}
+ th, td {{ padding:7px 10px; border-bottom:1px solid var(--line); }}
+ thead th {{ position:sticky; top:0; background:var(--head-soft); color:var(--head);
+   text-align:left; font-weight:700; font-size:.78rem; text-transform:uppercase;
+   letter-spacing:.03em; }}
+ tbody tr:nth-child(even) {{ background:#fafcfb; }}
+ tbody tr:hover {{ background:#eef3f9; }}
+
+ /* ---- Next match card ---- */
+ .nextmatch {{ background:linear-gradient(135deg,var(--head),var(--head-2)); color:#fff;
+   border-radius:14px; padding:18px 20px; }}
+ .nm-when {{ font-size:.8rem; opacity:.9; font-weight:600; }}
+ .nm-teams {{ font-size:1.5rem; font-weight:800; margin:4px 0 2px; }}
+ .nm-v {{ opacity:.65; font-weight:500; font-size:1rem; margin:0 6px; }}
+ .nm-line {{ font-size:.86rem; opacity:.95; margin-bottom:10px; }}
+ .nm-bar {{ display:flex; height:22px; border-radius:6px; overflow:hidden;
+   font-size:.72rem; font-weight:700; }}
+ .seg {{ display:flex; align-items:center; justify-content:center; color:#fff;
+   min-width:26px; }}
+ .seg-h {{ background:#0e7a39; }} .seg-d {{ background:#7d8a82; }}
+ .seg-a {{ background:#b9532a; }}
+
+ .pill {{ display:inline-block; padding:1px 8px; border-radius:999px;
+   font-size:.72rem; font-weight:700; }}
+ .pill-ok {{ background:#e3f3e9; color:#15803d; }}
+ .pill-no {{ background:#fbe6e6; color:#b2182b; }}
+
+ /* ---- Group stage cards ---- */
+ .ggrid {{ display:grid; gap:16px;
+   grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); }}
+ .gcard {{ border:1px solid var(--line); border-radius:14px; overflow:hidden;
+   background:#fff; box-shadow:0 1px 2px rgba(16,40,28,.04); }}
+ .gcard-h {{ background:linear-gradient(135deg,var(--head),var(--head-2));
+   color:#fff; font-weight:800; font-size:.92rem; letter-spacing:.02em;
+   padding:9px 14px; }}
+ .gtable {{ width:100%; min-width:0; border-collapse:collapse; font-size:12.5px; }}
+ .gtable th {{ background:var(--head-soft); color:var(--head); padding:6px 12px;
+   font-size:.68rem; text-transform:uppercase; letter-spacing:.04em;
+   font-weight:700; text-align:center; }}
+ .gtable th:first-child {{ text-align:left; }}
+ .gtable td {{ padding:5px 12px; border-bottom:1px solid var(--line);
+   vertical-align:middle; }}
+ .gtable td.g-team {{ font-weight:600; }}
+ .gtable tr.g-q {{ background:#f3f7fc; }}
+ .gtable tr.g-q td.g-team {{ color:var(--head); }}
+ .gtable tr.g-q td.g-team::before {{ content:"\\2713"; color:var(--green);
+   font-weight:800; margin-right:5px; font-size:.78rem; }}
+ .g-num {{ width:33%; }}
+ .gbar {{ position:relative; height:18px; border-radius:5px; background:#eef1f5;
+   overflow:hidden; }}
+ .gbar > i {{ position:absolute; left:0; top:0; bottom:0; background:#bcd3e6; }}
+ .gbar.gw > i {{ background:#e7d9a6; }}
+ .gbar > b {{ position:absolute; inset:0; display:flex; align-items:center;
+   justify-content:center; font-size:.72rem; font-weight:700; color:#23364a;
+   font-style:normal; }}
+ .gf-sub {{ font-size:.66rem; text-transform:uppercase; letter-spacing:.05em;
+   color:var(--muted); font-weight:800; padding:10px 14px 2px; }}
+ .gf-list {{ list-style:none; margin:0; padding:2px 14px 14px; }}
+ .gf-list li {{ padding:7px 0; border-bottom:1px solid #f1f4f2; }}
+ .gf-list li:last-child {{ border-bottom:none; }}
+ .gf-row {{ display:flex; align-items:center; justify-content:space-between;
+   gap:8px; font-size:12.5px; }}
+ .gf-row .gf-h {{ font-weight:600; text-align:right; flex:1; }}
+ .gf-row .gf-a {{ font-weight:600; flex:1; }}
+ .gf-xg {{ color:#46586b; font-size:.72rem; background:var(--head-soft);
+   border-radius:5px; padding:2px 7px; white-space:nowrap; font-weight:700; }}
+ .gf-wdl {{ text-align:center; color:var(--muted); font-size:.72rem;
+   margin-top:3px; letter-spacing:.02em; }}
+ .gf-done {{ color:var(--muted); padding:8px 14px 14px; font-size:.84rem;
+   font-style:italic; }}
+
+ footer {{ color:var(--muted); font-size:12px; text-align:center; padding:26px 16px; }}
+ footer code {{ background:#e7ece9; padding:1px 5px; border-radius:4px; }}
+ @media (max-width:560px) {{
+   header h1 {{ font-size:1.5rem; }}
+   .nm-teams {{ font-size:1.2rem; }}
+ }}
 </style></head><body>
 <header>
- <h1>2026 FIFA World Cup &mdash; Model Predictions</h1>
- <p>Predicted champion: <span class="badge">{bracket.champion} &middot; {champ_prob:.1%}</span></p>
+ <div class="hero-wrap">
+  <p class="eyebrow">FIFA World Cup 2026 &middot; Mexico &middot; USA &middot; Canada</p>
+  <h1>World Cup 2026 &mdash; AI Match Predictions</h1>
+  <p class="sub">Predicted champion:
+   <span class="badge">{bracket.champion} &middot; {champ_prob:.0%}</span>
+   &nbsp;&middot;&nbsp; updated {updated}</p>
+  {_hero_stats_html(bracket.champion, champ_prob, track_stats, next_match)}
+ </div>
 </header>
+<nav><div class="nav-wrap">
+ <a href="#next">Next match</a>
+ <a href="#upcoming">Upcoming fixtures</a>
+ <a href="#track">Track record</a>
+ <a href="#title">Title odds</a>
+ <a href="#bracket">Bracket</a>
+ <a href="#groups">Group forecast</a>
+ <a href="#rounds">Round odds</a>
+ <a href="#ko">Knockout games</a>
+</div></nav>
 <main>
-<p class="sub" style="color:var(--muted)">Group layout: {source} &middot;
- {n_sims:,} Monte Carlo simulations &middot; last updated {updated}</p>
-<section><h2>Expected knockout bracket</h2>{_img_tag(p_bracket)}</section>
-<section><h2>Upcoming fixtures &amp; live predictions (EAT)</h2>
- <p style="color:var(--muted);margin-top:0">Every remaining group-stage fixture
-  with kickoff in East Africa Time and the model's live call (win/draw/loss and
-  expected score). Each game moves to the <b>track record</b> below once played.</p>
- {_upcoming_html(upcoming)}</section>
-<section><h2>Live group-stage forecast</h2>
- <p style="color:var(--muted);margin-top:0">Predicted result of each remaining
-  group fixture (expected goals and win/draw/loss), with each team's chance of
-  advancing. Reflects current form blended with long-run strength, so strong
-  sides that stumbled early are still favoured to recover.</p>
- {_group_forecast_html(group_forecasts)}</section>
-<section><h2>Model track record</h2>
- <p style="color:var(--muted);margin-top:0">Every group-stage prediction the
-  model made <i>before</i> kickoff (walk-forward, no look-ahead), scored against
-  the actual result, <b>since the model went live on {PREDICTIONS_START:%b %d, %Y}</b>.
-  Locked when first made and updated as new matches finish.</p>
- {_track_record_html(track_log, track_stats)}</section>
-<section><h2>Title probability</h2>{_img_tag(p_bar)}</section>
-<section><h2>Reach-round probabilities</h2>{_img_tag(p_heat)}</section>
-<section><h2>Per-game knockout predictions</h2>{_games_table_html(games_df)}</section>
+
+<section id="next">
+ <h2>Next match</h2>
+ <p class="lead">The next fixture to kick off, with the model's live call.</p>
+ {_next_match_html(next_match)}
+</section>
+
+<section id="upcoming">
+ <h2>Upcoming fixtures &amp; live predictions</h2>
+ <p class="lead">Every remaining group-stage fixture with kickoff in East Africa
+  Time (EAT) and the model's live call (win/draw/loss + expected score). Each
+  game moves to the track record once played.</p>
+ <div class="tbl-scroll">{_upcoming_html(upcoming)}</div>
+</section>
+
+<section id="track">
+ <h2>Model track record</h2>
+ <p class="lead">Every group-stage prediction the model made <i>before</i>
+  kickoff (walk-forward, no look-ahead), scored against the actual result, since
+  the model went live on {PREDICTIONS_START:%b %d, %Y}. Locked when first made.</p>
+ <div class="tbl-scroll">{_track_record_html(track_log, track_stats)}</div>
+</section>
+
+<section id="title">
+ <h2>Title probability</h2>
+ <p class="lead">Each team's chance of lifting the trophy, across all simulated
+  tournaments.</p>
+ {_img_tag(p_bar)}
+</section>
+
+<section id="bracket">
+ <h2>Expected knockout bracket</h2>
+ <p class="lead">The most-likely path to the final, with the model's win
+  probability for every tie.</p>
+ {_img_tag(p_bracket)}
+</section>
+
+<section id="groups">
+ <h2>Live group-stage forecast</h2>
+ <p class="lead">Predicted result of each remaining group fixture and every
+  team's chance of advancing &mdash; current form blended with long-run strength,
+  so strong sides that stumbled early can still recover.</p>
+ {_group_forecast_html(group_forecasts)}
+</section>
+
+<section id="rounds">
+ <h2>Reach-round probabilities</h2>
+ <p class="lead">How far each team is projected to go.</p>
+ {_img_tag(p_heat)}
+</section>
+
+<section id="ko">
+ <h2>Per-game knockout predictions</h2>
+ <p class="lead">Win probability for every projected knockout tie.</p>
+ <div class="tbl-scroll">{_games_table_html(games_df)}</div>
+</section>
+
 </main>
 <footer>
- Built with a LightGBM goal model + Monte Carlo tournament simulation.
- Forecasts are probabilistic; football is high-variance. &middot;
- Updated {updated}.
+ Forecasts are probabilistic; football is high-variance.
+ &middot; Updated {updated}.
 </footer>
 </body></html>"""
     (REPORTS / "dashboard.html").write_text(html, encoding="utf-8")
