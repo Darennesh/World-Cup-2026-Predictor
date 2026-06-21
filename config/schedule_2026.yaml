@@ -1,0 +1,66 @@
+# 2026 World Cup — kickoff schedule for UPCOMING group-stage fixtures.
+#
+# Purpose: supply real kickoff times so the dashboard can show each upcoming
+# fixture in East Africa Time (EAT = UTC+3). The match PREDICTIONS are computed
+# automatically by the model and do NOT depend on this file — only the displayed
+# kickoff time does. Fixtures without an entry here show "Time TBD (EAT)".
+#
+# HOW TO FILL:
+#   * Times MUST be in UTC, ISO-8601, e.g. 2026-06-24T19:00:00Z
+#     (the dashboard adds +3h to display EAT automatically).
+#   * Key each fixture exactly as "Home vs Away" using the team names below.
+#   * Replace the "TBD" placeholders with the real UTC kickoff.
+#   * Played fixtures are ignored automatically; you can leave or remove them.
+#
+# Example:
+#   "Spain vs Uruguay": 2026-06-24T19:00:00Z   # -> shown as 22:00 EAT
+
+fixtures:
+  # --- Group A ---
+  "Mexico vs Czech Republic": TBD
+  "South Africa vs South Korea": TBD
+  # --- Group B ---
+  "Canada vs Switzerland": TBD
+  "Bosnia and Herzegovina vs Qatar": TBD
+  # --- Group C ---
+  "Brazil vs Scotland": TBD
+  "Morocco vs Haiti": TBD
+  # --- Group D ---
+  "United States vs Turkey": TBD
+  "Paraguay vs Australia": TBD
+  # --- Group E ---
+  "Germany vs Ecuador": TBD
+  "Curaçao vs Ivory Coast": TBD
+  # --- Group F ---
+  "Netherlands vs Tunisia": TBD
+  "Japan vs Sweden": TBD
+  # --- Group G ---
+  "Belgium vs Iran": TBD
+  "Belgium vs New Zealand": TBD
+  "Egypt vs Iran": TBD
+  "Egypt vs New Zealand": TBD
+  # --- Group H ---
+  "Spain vs Saudi Arabia": TBD
+  "Spain vs Uruguay": TBD
+  "Cape Verde vs Saudi Arabia": TBD
+  "Cape Verde vs Uruguay": TBD
+  # --- Group I ---
+  "France vs Iraq": TBD
+  "France vs Norway": TBD
+  "Senegal vs Iraq": TBD
+  "Senegal vs Norway": TBD
+  # --- Group J ---
+  "Argentina vs Austria": TBD
+  "Argentina vs Jordan": TBD
+  "Algeria vs Austria": TBD
+  "Algeria vs Jordan": TBD
+  # --- Group K ---
+  "Portugal vs Uzbekistan": TBD
+  "Portugal vs Colombia": TBD
+  "DR Congo vs Uzbekistan": TBD
+  "DR Congo vs Colombia": TBD
+  # --- Group L ---
+  "England vs Ghana": TBD
+  "England vs Panama": TBD
+  "Croatia vs Ghana": TBD
+  "Croatia vs Panama": TBD

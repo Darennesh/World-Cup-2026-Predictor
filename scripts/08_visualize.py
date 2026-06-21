@@ -35,6 +35,7 @@ from src.simulation.groups_2026 import resolve_groups  # noqa: E402
 from src.simulation.bracket import build_expected_bracket  # noqa: E402
 from src.simulation.group_forecast import (forecast_group,  # noqa: E402
                                            played_results_for)
+from src.simulation.fixtures import upcoming_fixtures, load_schedule  # noqa: E402
 from src.evaluation.tracker import (update_log, summarize,  # noqa: E402
                                     OUTCOME_LABELS, PREDICTIONS_START)
 from src.visualization.plots import (plot_bracket, plot_champion_bar,  # noqa: E402
@@ -96,6 +97,45 @@ def _group_forecast_html(forecasts: list) -> str:
             f"</tbody></table></div>"
         )
     return f"<div style='display:flex;flex-wrap:wrap;gap:18px'>{''.join(blocks)}</div>"
+
+
+def _upcoming_html(fixtures: list) -> str:
+    """Render upcoming fixtures with EAT kickoff and the live prediction."""
+    if not fixtures:
+        return ("<p style='color:#666'>No upcoming group-stage fixtures &mdash; "
+                "the group stage is complete.</p>")
+
+    n_timed = sum(1 for f in fixtures if f.kickoff_utc is not None)
+    note = ("" if n_timed == fixtures.__len__() else
+            "<p style='color:#888;font-size:.82rem;margin:.2rem 0 8px'>"
+            "Kickoff times shown in EAT (UTC+3) where scheduled; remaining times "
+            "populate from <code>config/schedule_2026.yaml</code>. Predictions are "
+            "live and update every build.</p>")
+
+    rows = []
+    for f in fixtures:
+        fav = ("Draw" if f.favourite == "Draw"
+               else f"<b>{f.favourite}</b>")
+        conf = max(f.p_home, f.p_draw, f.p_away)
+        rows.append(
+            f"<tr><td style='white-space:nowrap'>{f.eat_label}</td>"
+            f"<td style='text-align:center;color:#888'>{f.group}</td>"
+            f"<td style='text-align:right'>{f.home}</td>"
+            f"<td style='text-align:center;color:#888'>"
+            f"{f.exp_home:.1f}&ndash;{f.exp_away:.1f}</td>"
+            f"<td>{f.away}</td>"
+            f"<td style='text-align:center'>"
+            f"{f.p_home:.0%}/{f.p_draw:.0%}/{f.p_away:.0%}</td>"
+            f"<td>{fav} <span style='color:#999'>({conf:.0%})</span></td></tr>"
+        )
+    table = (
+        "<table><thead><tr><th>Kickoff (EAT)</th><th>Grp</th>"
+        "<th style='text-align:right'>Home</th><th>xScore</th><th>Away</th>"
+        "<th>P(H/D/A)</th><th>Prediction</th></tr></thead><tbody>"
+        + "".join(rows) + "</tbody></table>"
+    )
+    return note + table
+
 
 
 def _track_record_html(log: pd.DataFrame, stats: dict) -> str:
@@ -192,6 +232,12 @@ def main() -> None:
         for name, teams in groups.items()
     ]
 
+    print("Computing upcoming fixtures with EAT kickoff + live predictions ...")
+    schedule = load_schedule()
+    upcoming = upcoming_fixtures(model, matches, groups, schedule)
+    n_timed = sum(1 for f in upcoming if f.kickoff_utc is not None)
+    print(f"  {len(upcoming)} upcoming fixtures ({n_timed} with scheduled times)")
+
     print("Updating model track record (walk-forward predictions vs actuals) ...")
     track_log = update_log(matches, features, TRACK_LOG)
     track_stats = summarize(track_log)
@@ -264,6 +310,11 @@ def main() -> None:
 <p class="sub" style="color:var(--muted)">Group layout: {source} &middot;
  {n_sims:,} Monte Carlo simulations &middot; last updated {updated}</p>
 <section><h2>Expected knockout bracket</h2>{_img_tag(p_bracket)}</section>
+<section><h2>Upcoming fixtures &amp; live predictions (EAT)</h2>
+ <p style="color:var(--muted);margin-top:0">Every remaining group-stage fixture
+  with kickoff in East Africa Time and the model's live call (win/draw/loss and
+  expected score). Each game moves to the <b>track record</b> below once played.</p>
+ {_upcoming_html(upcoming)}</section>
 <section><h2>Live group-stage forecast</h2>
  <p style="color:var(--muted);margin-top:0">Predicted result of each remaining
   group fixture (expected goals and win/draw/loss), with each team's chance of
