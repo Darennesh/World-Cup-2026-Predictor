@@ -456,22 +456,39 @@ def main() -> None:
    text-shadow:0 1px 2px rgba(0,0,0,.25); }}
  .stat-lbl {{ font-size:.76rem; opacity:.95; margin-top:3px; color:#eaf3ee; }}
 
- /* ---- Sticky nav ---- */
+ /* ---- Sticky nav / tabs ---- */
  nav {{ position:sticky; top:0; z-index:20; background:color-mix(in srgb,var(--card) 92%,transparent);
        backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }}
  .nav-wrap {{ max-width:1140px; margin:0 auto; display:flex; gap:4px;
    overflow-x:auto; padding:8px 16px; }}
  nav a {{ white-space:nowrap; text-decoration:none; color:var(--muted);
-         font-size:.82rem; font-weight:600; padding:6px 12px; border-radius:8px; }}
+         font-size:.82rem; font-weight:600; padding:6px 12px; border-radius:8px;
+         cursor:pointer; transition:background .15s, color .15s; }}
  nav a:hover {{ background:var(--bg); color:var(--head); }}
+ nav a.active {{ background:var(--head); color:#fff; }}
+
+ /* ---- Pager (prev / next) ---- */
+ .pager {{ display:flex; justify-content:space-between; align-items:center;
+   gap:12px; margin:18px 0 4px; }}
+ .pager button {{ background:var(--card); border:1px solid var(--line);
+   color:var(--head); font-weight:700; font-size:.85rem; border-radius:10px;
+   padding:9px 16px; cursor:pointer; transition:background .15s, border-color .15s; }}
+ .pager button:hover:not(:disabled) {{ background:var(--head-soft);
+   border-color:var(--head-2); }}
+ .pager button:disabled {{ opacity:.4; cursor:not-allowed; }}
+ .pager .pg-count {{ color:var(--muted); font-size:.82rem; font-weight:600; }}
 
  main {{ max-width:1140px; margin:0 auto; padding:8px 16px 24px; }}
  section {{ background:var(--card); border:1px solid var(--line);
    border-radius:16px; padding:20px 22px; margin:20px 0;
    box-shadow:0 1px 2px rgba(16,40,28,.04),0 6px 18px rgba(16,40,28,.04);
-   scroll-margin-top:60px;
-   opacity:0; transform:translateY(14px); transition:opacity .5s ease, transform .5s ease; }}
- section.show {{ opacity:1; transform:none; }}
+   scroll-margin-top:60px; }}
+ /* Tabbed pagination: show only the active section. The no-JS fallback below
+    reveals everything if scripting is disabled. */
+ .js section {{ display:none; }}
+ .js section.active {{ display:block; animation:fadeIn .35s ease; }}
+ @keyframes fadeIn {{ from {{ opacity:0; transform:translateY(10px); }}
+                     to {{ opacity:1; transform:none; }} }}
  .sec-head {{ display:flex; align-items:baseline; gap:10px; margin:0 0 4px; }}
  section h2 {{ margin:0; font-size:1.16rem; color:var(--head);
    display:flex; align-items:center; gap:9px; }}
@@ -612,6 +629,7 @@ def main() -> None:
    .nm-teams {{ font-size:1.2rem; }}
  }}
 </style></head><body>
+<script>document.documentElement.className += ' js';</script>
 <header>
  <button class="theme-btn" id="themeBtn" type="button" aria-label="Toggle theme">🌙 Dark</button>
  <div class="hero-wrap">
@@ -625,14 +643,14 @@ def main() -> None:
  </div>
 </header>
 <nav><div class="nav-wrap">
- <a href="#next">Next match</a>
- <a href="#upcoming">Upcoming fixtures</a>
- <a href="#track">Track record</a>
- <a href="#title">Title odds</a>
- <a href="#bracket">Bracket</a>
- <a href="#groups">Group forecast</a>
- <a href="#rounds">Round odds</a>
- <a href="#ko">Knockout games</a>
+ <a href="#next" class="tab" data-tab="next">Next match</a>
+ <a href="#title" class="tab" data-tab="title">Title odds</a>
+ <a href="#bracket" class="tab" data-tab="bracket">Bracket</a>
+ <a href="#upcoming" class="tab" data-tab="upcoming">Upcoming fixtures</a>
+ <a href="#groups" class="tab" data-tab="groups">Group forecast</a>
+ <a href="#track" class="tab" data-tab="track">Track record</a>
+ <a href="#rounds" class="tab" data-tab="rounds">Round odds</a>
+ <a href="#ko" class="tab" data-tab="ko">Knockout games</a>
 </div></nav>
 <main>
 
@@ -640,20 +658,6 @@ def main() -> None:
  <h2>Next match</h2>
  <p class="lead">The next fixture to kick off, with the model's live call.</p>
  {_next_match_html(next_match)}
-</section>
-
-<section id="upcoming">
- <h2>Upcoming fixtures &amp; live predictions</h2>
- <p class="lead">Every remaining group fixture in EAT, with the model's live
-  win/draw/loss call and expected score.</p>
- <div class="tbl-scroll">{_upcoming_html(upcoming)}</div>
-</section>
-
-<section id="track">
- <h2>Model track record</h2>
- <p class="lead">Each pre-kickoff prediction (no look-ahead) scored against the
-  actual result, since the model went live on {PREDICTIONS_START:%b %d, %Y}.</p>
- <div class="tbl-scroll">{_track_record_html(track_log, track_stats)}</div>
 </section>
 
 <section id="title">
@@ -669,11 +673,25 @@ def main() -> None:
  {_bracket_html(bracket)}
 </section>
 
+<section id="upcoming">
+ <h2>Upcoming fixtures &amp; live predictions</h2>
+ <p class="lead">Every remaining group fixture in EAT, with the model's live
+  win/draw/loss call and expected score.</p>
+ <div class="tbl-scroll">{_upcoming_html(upcoming)}</div>
+</section>
+
 <section id="groups">
  <h2>Live group-stage forecast</h2>
  <p class="lead">Remaining fixtures, recent form, and every team's chance of
   advancing &mdash; form blended with long-run strength.</p>
  {_group_forecast_html(group_forecasts, form_map)}
+</section>
+
+<section id="track">
+ <h2>Model track record</h2>
+ <p class="lead">Each pre-kickoff prediction (no look-ahead) scored against the
+  actual result, since the model went live on {PREDICTIONS_START:%b %d, %Y}.</p>
+ <div class="tbl-scroll">{_track_record_html(track_log, track_stats)}</div>
 </section>
 
 <section id="rounds">
@@ -742,16 +760,63 @@ def main() -> None:
     tick(); setInterval(tick, 1000);
   }}
 
-  // ---- Scroll entrance animations (#10) ----
-  var secs = document.querySelectorAll('section');
-  if ('IntersectionObserver' in window) {{
-    var io = new IntersectionObserver(function(entries) {{
-      entries.forEach(function(en) {{
-        if (en.isIntersecting) {{ en.target.classList.add('show'); io.unobserve(en.target); }}
-      }});
-    }}, {{ threshold: 0.08 }});
-    secs.forEach(function(s) {{ io.observe(s); }});
-  }} else {{ secs.forEach(function(s) {{ s.classList.add('show'); }}); }}
+  // ---- Tabbed pagination ----
+  // Each nav item maps to one section; only the active section is shown, so the
+  // page reads as discrete tabs instead of one long scroll. A prev/next pager
+  // and the browser hash keep navigation easy and deep-linkable.
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('nav a.tab'));
+  var ids = tabs.map(function(t) {{ return t.dataset.tab; }});
+  var labels = tabs.map(function(t) {{ return t.textContent.trim(); }});
+
+  // Build the prev/next pager and append it to <main>.
+  var main = document.querySelector('main');
+  var pager = document.createElement('div');
+  pager.className = 'pager';
+  pager.innerHTML =
+    '<button type="button" id="pgPrev">&#8592; Previous</button>' +
+    '<span class="pg-count" id="pgCount"></span>' +
+    '<button type="button" id="pgNext">Next &#8594;</button>';
+  if (main) main.appendChild(pager);
+  var prevBtn = document.getElementById('pgPrev'),
+      nextBtn = document.getElementById('pgNext'),
+      count = document.getElementById('pgCount');
+
+  var current = 0;
+  function activate(i, push) {{
+    if (i < 0 || i >= ids.length) return;
+    current = i;
+    tabs.forEach(function(t, k) {{ t.classList.toggle('active', k === i); }});
+    ids.forEach(function(id, k) {{
+      var s = document.getElementById(id);
+      if (s) s.classList.toggle('active', k === i);
+    }});
+    if (prevBtn) prevBtn.disabled = (i === 0);
+    if (nextBtn) {{
+      nextBtn.disabled = (i === ids.length - 1);
+      nextBtn.innerHTML = (i === ids.length - 1)
+        ? 'Next &#8594;'
+        : labels[i + 1] + ' &#8594;';
+    }}
+    if (prevBtn) prevBtn.innerHTML = (i === 0)
+      ? '&#8592; Previous' : '&#8592; ' + labels[i - 1];
+    if (count) count.textContent = 'Section ' + (i + 1) + ' of ' + ids.length;
+    if (push && history.replaceState) history.replaceState(null, '', '#' + ids[i]);
+    window.scrollTo({{ top: 0, behavior: 'smooth' }});
+  }}
+
+  tabs.forEach(function(t, i) {{
+    t.addEventListener('click', function(e) {{ e.preventDefault(); activate(i, true); }});
+  }});
+  if (prevBtn) prevBtn.addEventListener('click', function() {{ activate(current - 1, true); }});
+  if (nextBtn) nextBtn.addEventListener('click', function() {{ activate(current + 1, true); }});
+  window.addEventListener('hashchange', function() {{
+    var j = ids.indexOf(location.hash.replace('#', ''));
+    if (j >= 0 && j !== current) activate(j, false);
+  }});
+
+  // Start on the section named in the URL hash, else the first tab.
+  var start = ids.indexOf(location.hash.replace('#', ''));
+  activate(start >= 0 ? start : 0, false);
 }})();
 </script>
 </body></html>"""
