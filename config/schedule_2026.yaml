@@ -16,51 +16,52 @@
 #   "Spain vs Uruguay": 2026-06-24T19:00:00Z   # -> shown as 22:00 EAT
 
 fixtures:
-  # --- Group A ---
-  "Mexico vs Czech Republic": TBD
-  "South Africa vs South Korea": TBD
-  # --- Group B ---
-  "Canada vs Switzerland": TBD
-  "Bosnia and Herzegovina vs Qatar": TBD
-  # --- Group C ---
-  "Brazil vs Scotland": TBD
-  "Morocco vs Haiti": TBD
-  # --- Group D ---
-  "United States vs Turkey": TBD
-  "Paraguay vs Australia": TBD
-  # --- Group E ---
-  "Germany vs Ecuador": TBD
-  "Curaçao vs Ivory Coast": TBD
-  # --- Group F ---
-  "Netherlands vs Tunisia": TBD
-  "Japan vs Sweden": TBD
-  # --- Group G ---
-  "Belgium vs Iran": TBD
-  "Belgium vs New Zealand": TBD
-  "Egypt vs Iran": TBD
-  "Egypt vs New Zealand": TBD
-  # --- Group H ---
-  "Spain vs Saudi Arabia": TBD
-  "Spain vs Uruguay": TBD
-  "Cape Verde vs Saudi Arabia": TBD
-  "Cape Verde vs Uruguay": TBD
-  # --- Group I ---
-  "France vs Iraq": TBD
-  "France vs Norway": TBD
-  "Senegal vs Iraq": TBD
-  "Senegal vs Norway": TBD
-  # --- Group J ---
-  "Argentina vs Austria": TBD
-  "Argentina vs Jordan": TBD
-  "Algeria vs Austria": TBD
-  "Algeria vs Jordan": TBD
-  # --- Group K ---
-  "Portugal vs Uzbekistan": TBD
-  "Portugal vs Colombia": TBD
-  "DR Congo vs Uzbekistan": TBD
-  "DR Congo vs Colombia": TBD
-  # --- Group L ---
-  "England vs Ghana": TBD
-  "England vs Panama": TBD
-  "Croatia vs Ghana": TBD
-  "Croatia vs Panama": TBD
+  # ===== Matchday 2 (remaining) =====
+  # Sun Jun 21 (UK / BST = UTC+1)
+  "Tunisia vs Japan": 2026-06-21T04:00:00Z          # 5am BST -> 7am EAT
+  "Spain vs Saudi Arabia": 2026-06-21T16:00:00Z     # 5pm BST -> 7pm EAT
+  "Belgium vs Iran": 2026-06-21T19:00:00Z           # 8pm BST -> 10pm EAT
+  "Uruguay vs Cape Verde": 2026-06-21T22:00:00Z     # 11pm BST -> 1am EAT (+1d)
+  # Mon Jun 22 (UK)
+  "New Zealand vs Egypt": 2026-06-22T01:00:00Z      # 2am BST -> 4am EAT
+  "Argentina vs Austria": 2026-06-22T17:00:00Z      # 6pm BST -> 8pm EAT
+  "France vs Iraq": 2026-06-22T21:00:00Z            # 10pm BST -> 12am EAT (+1d)
+  # Tue Jun 23 (UK)
+  "Norway vs Senegal": 2026-06-23T00:00:00Z         # 1am BST -> 3am EAT
+  "Jordan vs Algeria": 2026-06-23T03:00:00Z         # 4am BST -> 6am EAT
+  "Portugal vs Uzbekistan": 2026-06-23T17:00:00Z    # 6pm BST -> 8pm EAT
+  "England vs Ghana": 2026-06-23T20:00:00Z          # 9pm BST -> 11pm EAT
+  # Wed Jun 24 (UK)
+  "Panama vs Croatia": 2026-06-23T23:00:00Z         # 12am BST Wed -> 2am EAT
+  "Colombia vs DR Congo": 2026-06-24T02:00:00Z      # 3am BST -> 5am EAT
+  "Switzerland vs Canada": 2026-06-24T19:00:00Z     # 8pm BST -> 10pm EAT
+  "Bosnia and Herzegovina vs Qatar": 2026-06-24T19:00:00Z  # 8pm BST -> 10pm EAT
+  "Morocco vs Haiti": 2026-06-24T22:00:00Z          # 11pm BST -> 1am EAT (+1d)
+  "Scotland vs Brazil": 2026-06-24T22:00:00Z        # 11pm BST -> 1am EAT (+1d)
+  # Thu Jun 25 (UK)
+  "South Africa vs South Korea": 2026-06-25T01:00:00Z   # 2am BST -> 4am EAT
+  "Czech Republic vs Mexico": 2026-06-25T01:00:00Z      # 2am BST -> 4am EAT
+
+  # ===== Matchday 3 =====
+  # Thu Jun 25 (UK)
+  "Curaçao vs Ivory Coast": 2026-06-25T20:00:00Z    # 9pm BST -> 11pm EAT
+  "Ecuador vs Germany": 2026-06-25T20:00:00Z        # 9pm BST -> 11pm EAT
+  # Fri Jun 26 (UK)
+  "Tunisia vs Netherlands": 2026-06-25T23:00:00Z    # 12am BST Fri -> 2am EAT
+  "Japan vs Sweden": 2026-06-25T23:00:00Z           # 12am BST Fri -> 2am EAT
+  "Turkey vs United States": 2026-06-26T02:00:00Z   # 3am BST -> 5am EAT
+  "Paraguay vs Australia": 2026-06-26T02:00:00Z     # 3am BST -> 5am EAT
+  "Norway vs France": 2026-06-26T19:00:00Z          # 8pm BST -> 10pm EAT
+  "Senegal vs Iraq": 2026-06-26T19:00:00Z           # 8pm BST -> 10pm EAT
+  # Sat Jun 27 (UK)
+  "Cape Verde vs Saudi Arabia": 2026-06-27T00:00:00Z    # 1am BST -> 3am EAT
+  "Uruguay vs Spain": 2026-06-27T00:00:00Z              # 1am BST -> 3am EAT
+  "New Zealand vs Belgium": 2026-06-27T03:00:00Z        # 4am BST -> 6am EAT
+  "Egypt vs Iran": 2026-06-27T03:00:00Z                 # 4am BST -> 6am EAT
+  "Panama vs England": 2026-06-27T21:00:00Z             # 10pm BST -> 12am EAT (+1d)
+  "Croatia vs Ghana": 2026-06-27T21:00:00Z              # 10pm BST -> 12am EAT (+1d)
+  # Sun Jun 28 (UK)
+  "Colombia vs Portugal": 2026-06-27T23:30:00Z          # 12.30am BST Sun -> 2.30am EAT
+  "DR Congo vs Uzbekistan": 2026-06-27T23:30:00Z        # 12.30am BST Sun -> 2.30am EAT
+  "Algeria vs Austria": 2026-06-28T02:00:00Z            # 3am BST -> 5am EAT
+  "Jordan vs Argentina": 2026-06-28T02:00:00Z           # 3am BST -> 5am EAT
