@@ -72,6 +72,44 @@ def load_log(path: Path) -> pd.DataFrame:
     return pd.DataFrame(columns=LOG_COLUMNS)
 
 
+def _normalize_names(log: pd.DataFrame) -> pd.DataFrame:
+    """Map alternate team spellings to the dataset's canonical names so the same
+    nation never appears under two labels (e.g. 'Cape Verde Islands')."""
+    try:
+        from src.data.live_results import TEAM_NAME_MAP
+    except Exception:
+        return log
+    log = log.copy()
+    for col in ("home_team", "away_team"):
+        log[col] = log[col].astype(str).map(lambda n: TEAM_NAME_MAP.get(n, n))
+    return log
+
+
+def _dedup(log: pd.DataFrame) -> pd.DataFrame:
+    """Collapse duplicate fixtures arising when two data sources name or date
+    the same game differently (e.g. 'Cape Verde' vs 'Cape Verde Islands', or a
+    one-day skew). Keyed by the unordered team pair within +/-1 day; the most
+    recently logged row is kept.
+    """
+    if log.empty:
+        return log
+    log = _normalize_names(log)
+    log = log.sort_values("date").reset_index(drop=True)
+    a = log["home_team"].astype(str)
+    b = log["away_team"].astype(str)
+    pair = (a.where(a < b, b) + "|" + a.where(a >= b, b))
+    d = pd.to_datetime(log["date"], errors="coerce")
+
+    keep, seen = [], []
+    for i in range(len(log)):
+        dup = any(pair.iloc[i] == p and abs((d.iloc[i] - dt).days) <= 1
+                  for p, dt in seen)
+        if not dup:
+            keep.append(i)
+            seen.append((pair.iloc[i], d.iloc[i]))
+    return log.iloc[keep].reset_index(drop=True)
+
+
 def _key(df: pd.DataFrame) -> set:
     return {
         (pd.Timestamp(d).strftime("%Y-%m-%d"), h, a)
@@ -94,11 +132,12 @@ def update_log(matches: pd.DataFrame, features: pd.DataFrame,
         return load_log(log_path)
 
     log = load_log(log_path)
-    # Drop any previously-logged fixtures from before the go-live date so the
-    # record (and its stats) start cleanly on PREDICTIONS_START.
+    # Drop any previously-logged fixtures from before the go-live date, and
+    # collapse cross-source duplicates, so the record stays clean.
     if not log.empty:
         before = len(log)
         log = log[log["date"] >= PREDICTIONS_START].reset_index(drop=True)
+        log = _dedup(log)
         if len(log) != before:
             Path(log_path).parent.mkdir(parents=True, exist_ok=True)
             log.to_csv(log_path, index=False)

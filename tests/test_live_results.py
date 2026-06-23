@@ -9,6 +9,7 @@ def test_team_name_mapping():
     assert _map_team("Korea Republic") == "South Korea"
     assert _map_team("Czechia") == "Czech Republic"
     assert _map_team("Türkiye") == "Turkey"
+    assert _map_team("Cape Verde Islands") == "Cape Verde"
     assert _map_team("Brazil") == "Brazil"        # unknown passes through
 
 
@@ -64,3 +65,25 @@ def test_merge_empty_live_is_noop():
     mirror = _mirror()
     out = merge_live_into_mirror(mirror, pd.DataFrame())
     assert len(out) == len(mirror)
+
+
+def test_merge_dedups_across_date_and_name_skew():
+    # Mirror has the game one day off and with an alternate name; the live
+    # result must replace it (no duplicate), matching on the team pair.
+    mirror = pd.DataFrame({
+        "date": ["2026-06-21"],
+        "home_team": ["Uruguay"], "away_team": ["Cape Verde"],
+        "home_score": [2], "away_score": [2],
+        "tournament": ["FIFA World Cup"],
+        "city": [None], "country": [None], "neutral": [True],
+    })
+    live = pd.DataFrame({
+        "date": ["2026-06-22"],            # one day off
+        "home_team": ["Uruguay"], "away_team": ["Cape Verde"],
+        "home_score": [2], "away_score": [2],
+        "tournament": ["FIFA World Cup"],
+        "city": [None], "country": [None], "neutral": [True],
+    })
+    merged = merge_live_into_mirror(mirror, live)
+    uru = merged[merged["home_team"] == "Uruguay"]
+    assert len(uru) == 1                   # not duplicated

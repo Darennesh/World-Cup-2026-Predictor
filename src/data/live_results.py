@@ -41,6 +41,7 @@ TEAM_NAME_MAP = {
     "DR Congo": "DR Congo",
     "Congo DR": "DR Congo",
     "Cabo Verde": "Cape Verde",
+    "Cape Verde Islands": "Cape Verde",
     "Bosnia-Herzegovina": "Bosnia and Herzegovina",
     "Bosnia and Herzegovina": "Bosnia and Herzegovina",
 }
@@ -102,19 +103,39 @@ def fetch_live_results(api_key: str | None = None) -> pd.DataFrame:
 def merge_live_into_mirror(mirror: pd.DataFrame,
                            live: pd.DataFrame) -> pd.DataFrame:
     """Merge live results into the mirror frame, preferring live for any
-    duplicate fixture (same date + teams) and adding not-yet-published games.
+    matching fixture and adding games the mirror hasn't published.
+
+    Fixtures are matched on the *unordered* team pair within a +/-1 day window,
+    so harmless date/name discrepancies between the two sources don't create
+    duplicate rows (e.g. mirror dates a late-night game one day off the API).
+    The live row supersedes the mirror row entirely.
     """
     if live is None or live.empty:
         return mirror
 
-    def key(df):
-        return (df["date"].astype(str) + "|" + df["home_team"].astype(str)
-                + "|" + df["away_team"].astype(str))
-
     mirror = mirror.copy()
     live = live.copy()
-    live_keys = set(key(live))
-    # Drop any mirror rows superseded by a live result, then append live.
-    mirror = mirror[~key(mirror).isin(live_keys)]
+    mirror["_d"] = pd.to_datetime(mirror["date"], errors="coerce")
+    live["_d"] = pd.to_datetime(live["date"], errors="coerce")
+
+    def pair(df):
+        a = df["home_team"].astype(str)
+        b = df["away_team"].astype(str)
+        lo = a.where(a < b, b)
+        hi = a.where(a >= b, b)
+        return lo + "|" + hi
+
+    mirror["_pair"] = pair(mirror)
+    live["_pair"] = pair(live)
+
+    # For each live fixture, drop any mirror row with the same team pair within
+    # one day of the live date.
+    drop_idx = set()
+    for lp, ld in zip(live["_pair"], live["_d"]):
+        m = mirror[(mirror["_pair"] == lp)
+                   & (mirror["_d"] - ld).abs().le(pd.Timedelta(days=1))]
+        drop_idx.update(m.index.tolist())
+
+    mirror = mirror.drop(index=drop_idx)
     merged = pd.concat([mirror, live], ignore_index=True)
-    return merged
+    return merged.drop(columns=["_d", "_pair"])
