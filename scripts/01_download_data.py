@@ -122,22 +122,50 @@ def write_sample() -> None:
     print(f"Wrote synthetic sample ({len(rows)} matches) to {TARGET}")
 
 
+def merge_live_results() -> None:
+    """Overlay live football-data.org results onto the mirror CSV (if any).
+
+    Runs after the mirror is in place. Live finished matches supersede the
+    mirror's (often-blank) rows for the same fixture and add games the mirror
+    hasn't published yet, so the pipeline reflects results within minutes of
+    full-time. No-ops silently if the API key is unset or the fetch fails.
+    """
+    if not TARGET.exists():
+        return
+    try:
+        import pandas as pd
+        from src.data.live_results import (fetch_live_results,
+                                           merge_live_into_mirror)
+        live = fetch_live_results()
+        if live.empty:
+            return
+        mirror = pd.read_csv(TARGET)
+        merged = merge_live_into_mirror(mirror, live)
+        merged.to_csv(TARGET, index=False)
+        print(f"[live] merged live results -> {len(merged)} total rows.")
+    except Exception as exc:
+        print(f"[live] merge skipped ({exc}).")
+
+
 def main() -> None:
     want_sample = "--sample" in sys.argv
     force = "--force" in sys.argv
 
     if TARGET.exists() and not force:
         print(f"Raw dataset already present: {TARGET} (use --force to replace)")
+        merge_live_results()
         return
 
     # Preferred: no-auth GitHub mirror.
     if try_github():
         print(f"Downloaded real dataset to {TARGET}")
+        merge_live_results()
         return
 
     # Fallback: Kaggle API (needs kaggle.json).
     if try_kaggle():
         print(f"Downloaded real dataset to {TARGET}")
+        merge_live_results()
         return
 
     print(MANUAL_MSG)
