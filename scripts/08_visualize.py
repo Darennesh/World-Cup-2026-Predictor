@@ -20,6 +20,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -39,9 +40,13 @@ from src.simulation.fixtures import upcoming_fixtures, load_schedule  # noqa: E4
 from src.evaluation.tracker import (update_log, summarize,  # noqa: E402
                                     OUTCOME_LABELS, PREDICTIONS_START)
 from src.visualization.plots import (plot_bracket, plot_champion_bar,  # noqa: E402
-                                     plot_round_heatmap)
+                                     plot_round_heatmap, plot_calibration)
 from src.visualization.flags import flag, with_flag  # noqa: E402
 from src.visualization.form import recent_form  # noqa: E402
+from src.evaluation.metrics import (  # noqa: E402
+    ranked_probability_score, log_loss_3way, brier_score_multiclass,
+    expected_calibration_error, classification_report_3way,
+    confusion_matrix_3way, skill_score)
 
 REPORTS = ROOT / "reports"
 PUBLIC = ROOT / "public"
@@ -318,6 +323,77 @@ def _bracket_html(bracket) -> str:
     return f"<div class='bx-scroll'><div class='bx'>{''.join(cols)}{champ}</div></div>"
 
 
+def _performance_html(log: pd.DataFrame, cal_png) -> str:
+    """Probabilistic-quality metrics + calibration for the locked predictions."""
+    if log.empty or len(log) < 3:
+        return ("<p style='color:var(--muted)'>Not enough scored matches yet "
+                "for a full performance breakdown &mdash; it populates as more "
+                "games are played.</p>")
+    probs = log[["p_home", "p_draw", "p_away"]].to_numpy(dtype=float)
+    actual = log["actual_outcome"].to_numpy(dtype=int)
+
+    base = np.bincount(actual, minlength=3) / len(actual)
+    base_rps = ranked_probability_score(np.tile(base, (len(actual), 1)), actual)
+    rps = ranked_probability_score(probs, actual)
+
+    rep = classification_report_3way(probs, actual)
+    cm = confusion_matrix_3way(probs, actual)
+
+    kpis = [
+        ("RPS (lower better)", f"{rps:.3f}"),
+        ("Skill vs base rate", f"{skill_score(rps, base_rps):+.0%}"),
+        ("Brier score", f"{brier_score_multiclass(probs, actual):.3f}"),
+        ("Log loss", f"{log_loss_3way(probs, actual):.3f}"),
+        ("Calibration error (ECE)", f"{expected_calibration_error(probs, actual):.3f}"),
+        ("Accuracy", f"{rep['accuracy']:.0%}"),
+    ]
+    kpi_html = "".join(
+        f"<div class='kpi'><div class='kpi-val'>{v}</div>"
+        f"<div class='kpi-lbl'>{k}</div></div>" for k, v in kpis)
+
+    # Per-outcome precision/recall/F1.
+    pr_rows = "".join(
+        f"<tr><td><b>{name}</b></td>"
+        f"<td style='text-align:center'>{m['precision']:.0%}</td>"
+        f"<td style='text-align:center'>{m['recall']:.0%}</td>"
+        f"<td style='text-align:center'>{m['f1']:.0%}</td>"
+        f"<td style='text-align:center;color:var(--muted)'>{m['support']}</td></tr>"
+        for name, m in rep["classes"].items())
+    pr_table = (
+        "<table style='max-width:520px'><thead><tr><th>Outcome</th>"
+        "<th>Precision</th><th>Recall</th><th>F1</th><th>N</th></tr></thead>"
+        f"<tbody>{pr_rows}</tbody></table>")
+
+    # Confusion matrix.
+    labels = ["Home", "Draw", "Away"]
+    cm_rows = ""
+    for i, name in enumerate(labels):
+        cells = "".join(
+            f"<td style='text-align:center;"
+            f"{'font-weight:700;color:var(--head)' if i==j else 'color:var(--muted)'}'>"
+            f"{cm[i, j]}</td>" for j in range(3))
+        cm_rows += f"<tr><td><b>{name}</b></td>{cells}</tr>"
+    cm_table = (
+        "<table style='max-width:420px'><thead><tr><th>Actual \\ Pred</th>"
+        f"<th>Home</th><th>Draw</th><th>Away</th></tr></thead>"
+        f"<tbody>{cm_rows}</tbody></table>")
+
+    return (
+        f"<div class='kpi-grid'>{kpi_html}</div>"
+        f"<div style='display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start'>"
+        f"<div style='flex:1 1 360px;max-width:440px'>{_img_tag(cal_png)}</div>"
+        f"<div style='flex:1 1 360px'>"
+        f"<h3 style='color:var(--head);font-size:.95rem;margin:.2rem 0 6px'>"
+        f"Per-outcome quality</h3>{pr_table}"
+        f"<h3 style='color:var(--head);font-size:.95rem;margin:14px 0 6px'>"
+        f"Confusion matrix</h3>{cm_table}</div></div>"
+        f"<p style='color:var(--muted);font-size:.82rem;margin-top:12px'>"
+        f"Football is high-variance; even strong models reach ~55&ndash;65% "
+        f"single-match accuracy. The goal is calibration and beating the base "
+        f"rate on RPS, not raw accuracy.</p>"
+    )
+
+
 def main() -> None:
     n_sims = 30_000
     if "--sims" in sys.argv:
@@ -386,6 +462,13 @@ def main() -> None:
     p_bracket = plot_bracket(bracket, REPORTS / "bracket.png")
     p_bar = plot_champion_bar(pred, REPORTS / "champion_bar.png")
     p_heat = plot_round_heatmap(pred, REPORTS / "round_heatmap.png")
+
+    # Calibration plot from the locked track record (if enough data).
+    p_cal = None
+    if not track_log.empty and len(track_log) >= 3:
+        cal_probs = track_log[["p_home", "p_draw", "p_away"]].to_numpy(dtype=float)
+        cal_out = track_log["actual_outcome"].to_numpy(dtype=int)
+        p_cal = plot_calibration(cal_probs, cal_out, REPORTS / "calibration.png")
 
     # Assemble a self-contained dashboard.
     now_utc = datetime.now(timezone.utc)
@@ -649,6 +732,7 @@ def main() -> None:
  <a href="#upcoming" class="tab" data-tab="upcoming">Upcoming fixtures</a>
  <a href="#groups" class="tab" data-tab="groups">Group forecast</a>
  <a href="#track" class="tab" data-tab="track">Track record</a>
+ <a href="#performance" class="tab" data-tab="performance">Model performance</a>
  <a href="#rounds" class="tab" data-tab="rounds">Round odds</a>
  <a href="#ko" class="tab" data-tab="ko">Knockout games</a>
 </div></nav>
@@ -692,6 +776,15 @@ def main() -> None:
  <p class="lead">Each pre-kickoff prediction (no look-ahead) scored against the
   actual result, since the model went live on {PREDICTIONS_START:%b %d, %Y}.</p>
  <div class="tbl-scroll">{_track_record_html(track_log, track_stats)}</div>
+</section>
+
+<section id="performance">
+ <h2>Model performance &amp; calibration</h2>
+ <p class="lead">Probabilistic-quality metrics on the locked predictions: RPS,
+  Brier, log loss, calibration error, and how well each outcome is called.</p>
+ {_performance_html(track_log, p_cal) if p_cal is not None
+   else "<p style='color:var(--muted)'>Calibration populates once enough "
+        "matches are scored.</p>"}
 </section>
 
 <section id="rounds">

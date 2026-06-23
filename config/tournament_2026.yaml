@@ -45,7 +45,8 @@ host_cities:
 
 groups:
   A: { teams: [Mexico, South Africa, South Korea, Czech Republic], results: [] }
-  B: { teams: [Canada, Bosnia and Herzegovina, Qatar, Switzerland], results: [] }
+  B:
+    { teams: [Canada, Bosnia and Herzegovina, Qatar, Switzerland], results: [] }
   C: { teams: [Brazil, Morocco, Haiti, Scotland], results: [] }
   D: { teams: [United States, Paraguay, Australia, Turkey], results: [] }
   E: { teams: [Germany, Curaçao, Ivory Coast, Ecuador], results: [] }

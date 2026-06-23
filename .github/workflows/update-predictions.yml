@@ -6,11 +6,11 @@ name: Update predictions
 
 on:
   schedule:
-    - cron: "0 */6 * * *"     # every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)
-  workflow_dispatch: {}        # allow manual runs from the Actions tab
+    - cron: "0 */6 * * *" # every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)
+  workflow_dispatch: {} # allow manual runs from the Actions tab
 
 permissions:
-  contents: write              # needed to commit the regenerated site
+  contents: write # needed to commit the regenerated site
 
 concurrency:
   group: update-predictions

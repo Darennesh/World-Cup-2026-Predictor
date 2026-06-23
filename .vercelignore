@@ -1,7 +1,11 @@
 # The site is a static export in public/. Hide everything else from Vercel so
+
 # it does NOT auto-detect a Python app (which causes "No python entrypoint
+
 # found"). These files remain in the GitHub repo for the build/CI workflow;
+
 # .vercelignore only affects what is uploaded to Vercel.
+
 src/
 scripts/
 tests/
@@ -12,8 +16,8 @@ reports/
 .github/
 .venv/
 requirements.txt
-*.py
-*.pyc
-__pycache__/
+_.py
+_.pyc
+**pycache**/
 .pytest_cache/
 README.md

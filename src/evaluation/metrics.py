@@ -75,3 +75,69 @@ def calibration_table(probs: np.ndarray, outcomes: np.ndarray, n_bins: int = 10)
         obs_freq.append(actual[mask].mean())
         counts.append(int(mask.sum()))
     return np.array(centers), np.array(pred_mean), np.array(obs_freq), np.array(counts)
+
+
+def brier_score_multiclass(probs: np.ndarray, outcomes: np.ndarray) -> float:
+    """Multiclass Brier score = mean squared error between predicted
+    probabilities and the one-hot outcome. Lower is better (0 = perfect)."""
+    probs = np.asarray(probs, dtype=float)
+    outcomes = np.asarray(outcomes, dtype=int)
+    n, k = probs.shape
+    actual = np.zeros((n, k))
+    actual[np.arange(n), outcomes] = 1.0
+    return float(np.mean(np.sum((probs - actual) ** 2, axis=1)))
+
+
+def expected_calibration_error(probs: np.ndarray, outcomes: np.ndarray,
+                               n_bins: int = 10) -> float:
+    """Expected Calibration Error (ECE) over all (match, class) pairs.
+
+    The count-weighted average gap between predicted confidence and observed
+    frequency across bins. 0 = perfectly calibrated; the headline trust metric.
+    """
+    centers, pred_mean, obs_freq, counts = calibration_table(
+        probs, outcomes, n_bins=n_bins)
+    if counts.sum() == 0:
+        return float("nan")
+    return float(np.sum(counts * np.abs(pred_mean - obs_freq)) / counts.sum())
+
+
+def classification_report_3way(probs: np.ndarray, outcomes: np.ndarray) -> dict:
+    """Precision / recall / F1 per outcome (Home/Draw/Away) plus accuracy, from
+    the argmax of the predicted probabilities. Draw is typically the hardest
+    class, so reporting it explicitly is informative."""
+    probs = np.asarray(probs, dtype=float)
+    outcomes = np.asarray(outcomes, dtype=int)
+    preds = probs.argmax(axis=1)
+    labels = {0: "Home", 1: "Draw", 2: "Away"}
+    out = {"accuracy": float(np.mean(preds == outcomes)), "classes": {}}
+    for c, name in labels.items():
+        tp = int(np.sum((preds == c) & (outcomes == c)))
+        fp = int(np.sum((preds == c) & (outcomes != c)))
+        fn = int(np.sum((preds != c) & (outcomes == c)))
+        prec = tp / (tp + fp) if (tp + fp) else 0.0
+        rec = tp / (tp + fn) if (tp + fn) else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+        out["classes"][name] = {"precision": prec, "recall": rec, "f1": f1,
+                                "support": int(np.sum(outcomes == c))}
+    return out
+
+
+def confusion_matrix_3way(probs: np.ndarray, outcomes: np.ndarray) -> np.ndarray:
+    """3x3 confusion matrix (rows = actual, cols = predicted), order H/D/A."""
+    probs = np.asarray(probs, dtype=float)
+    outcomes = np.asarray(outcomes, dtype=int)
+    preds = probs.argmax(axis=1)
+    cm = np.zeros((3, 3), dtype=int)
+    for a, p in zip(outcomes, preds):
+        cm[a, p] += 1
+    return cm
+
+
+def skill_score(model_rps: float, baseline_rps: float) -> float:
+    """RPS skill score vs a baseline: 1 - model/baseline. >0 means the model
+    beats the baseline; used to express 'better than base rate / market'."""
+    if baseline_rps <= 0:
+        return float("nan")
+    return float(1.0 - model_rps / baseline_rps)
+

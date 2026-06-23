@@ -159,3 +159,38 @@ def plot_round_heatmap(pred: pd.DataFrame, out: Path, top: int = 20) -> Path:
     fig.savefig(out, dpi=150, bbox_inches="tight")
     plt.close(fig)
     return out
+
+
+def plot_calibration(probs: np.ndarray, outcomes: np.ndarray, out: Path,
+                     n_bins: int = 10) -> Path:
+    """Reliability diagram: predicted confidence vs observed frequency.
+
+    Points on the diagonal mean perfect calibration (when the model says X%, it
+    happens X% of the time). Bubble size reflects how many predictions fall in
+    each bin.
+    """
+    from src.evaluation.metrics import calibration_table, expected_calibration_error
+    centers, pred_mean, obs_freq, counts = calibration_table(
+        probs, outcomes, n_bins=n_bins)
+    ece = expected_calibration_error(probs, outcomes, n_bins=n_bins)
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.plot([0, 1], [0, 1], "--", color="#888", lw=1, label="Perfect calibration")
+    if len(pred_mean):
+        sizes = 40 + 600 * (counts / max(counts.max(), 1))
+        ax.scatter(pred_mean, obs_freq, s=sizes, color="#1e3a5f",
+                   alpha=0.75, edgecolor="white", zorder=3, label="Model")
+        ax.plot(pred_mean, obs_freq, color="#1e3a5f", lw=1.2, alpha=0.5, zorder=2)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("Predicted probability")
+    ax.set_ylabel("Observed frequency")
+    ax.set_title(f"Calibration (ECE = {ece:.3f})", fontweight="bold")
+    ax.legend(loc="upper left", fontsize=9)
+    ax.set_aspect("equal")
+    fig.tight_layout()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
