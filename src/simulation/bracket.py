@@ -87,6 +87,10 @@ def _tie_probability(tt: Tournament, a: str, b: str) -> float:
 
 def build_expected_bracket(tt: Tournament) -> ExpectedBracket:
     """Compute the modal bracket and per-game probabilities for a Tournament."""
+    # Group stage complete: use the locked, real Round-of-32 bracket directly.
+    if getattr(tt, "fixed_bracket", None) is not None:
+        return _bracket_from_seed(tt, list(tt.fixed_bracket))
+
     winners, runners, thirds = {}, {}, []
     third_group: dict[str, str] = {}     # team -> group letter
     standings: dict[str, list[str]] = {}
@@ -119,6 +123,14 @@ def build_expected_bracket(tt: Tournament) -> ExpectedBracket:
                             [(third_group[t], t) for t in best_thirds])
     else:
         bracket = tt.seed_round_of_32(winners, runners, best_thirds)
+    return _bracket_from_seed(tt, bracket, standings)
+
+
+def _bracket_from_seed(tt: Tournament, bracket: list[str],
+                       standings: dict[str, list[str]] | None = None
+                       ) -> ExpectedBracket:
+    """Walk a fixed R32 seed order, recording per-tie win probabilities and
+    advancing the favourite, to produce the modal bracket to the Final."""
     labels = round_labels(len(bracket))   # e.g. [R32, R16, QF, SF, Final, Champion]
 
     games_by_round: dict[str, list[Game]] = {}
@@ -142,4 +154,4 @@ def build_expected_bracket(tt: Tournament) -> ExpectedBracket:
 
     return ExpectedBracket(games_by_round=games_by_round,
                            champion=current[0],
-                           group_standings=standings)
+                           group_standings=standings or {})

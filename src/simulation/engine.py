@@ -55,10 +55,15 @@ class Tournament:
     """Holds the group definitions and runs Monte Carlo simulations."""
 
     def __init__(self, groups: dict[str, list[str]], sampler: ScoreSampler,
-                 best_thirds: int = 8):
+                 best_thirds: int = 8, fixed_bracket: list[str] | None = None):
         self.group_defs = groups
         self.sampler = sampler
         self.all_teams = [t for teams in groups.values() for t in teams]
+        # When the group stage is complete the qualifiers are known, so we lock
+        # the real Round-of-32 bracket and Monte Carlo only the knockouts -- the
+        # forecast is then conditioned on what actually happened, not on
+        # re-simulated group results.
+        self.fixed_bracket = fixed_bracket
         # Adjust the number of qualifying thirds so the knockout bracket size
         # (2*groups + thirds) is a power of two. For the full 2026 format
         # (12 groups, 8 thirds) this leaves 8 unchanged -> a 32-team bracket.
@@ -150,6 +155,10 @@ class Tournament:
 
     # ---- single simulation ---------------------------------------------
     def simulate_once(self, rng: np.random.Generator) -> dict[str, str]:
+        # Group stage complete: run the locked, real bracket directly.
+        if self.fixed_bracket is not None:
+            return self._run_knockout(self.fixed_bracket, rng)
+
         winners, runners, thirds_records = {}, {}, []
         third_group: dict[str, str] = {}     # team -> its group letter
         for name, teams in self.group_defs.items():

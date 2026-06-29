@@ -32,7 +32,7 @@ from src.ratings.bayesian import (fit_prior_then_update,  # noqa: E402
 from src.ratings.adjustments import load_adjustments  # noqa: E402
 from src.simulation.sampler import ScoreSampler  # noqa: E402
 from src.simulation.engine import Tournament  # noqa: E402
-from src.simulation.groups_2026 import resolve_groups  # noqa: E402
+from src.simulation.groups_2026 import resolve_groups, actual_knockout_bracket  # noqa: E402
 from src.simulation.bracket import build_expected_bracket  # noqa: E402
 from src.simulation.group_forecast import (forecast_group,  # noqa: E402
                                            played_results_for)
@@ -419,7 +419,16 @@ def main() -> None:
     print(f"Groups: {source}")
 
     sampler = ScoreSampler(model)
-    tt = Tournament(groups, sampler)
+
+    # If the group stage is complete, lock the real Round-of-32 bracket so the
+    # knockout forecast is conditioned on the actual qualifiers (not re-drawn).
+    locked = actual_knockout_bracket(matches, groups)
+    if locked is not None:
+        tt = Tournament(groups, sampler, fixed_bracket=locked)
+        print(f"Group stage complete -> locked real R32 bracket "
+              f"({len(locked)} teams).")
+    else:
+        tt = Tournament(groups, sampler)
 
     print(f"Running {n_sims:,} simulations for round probabilities ...")
     pred = tt.run(n_sims=n_sims)

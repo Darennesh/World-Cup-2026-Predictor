@@ -92,3 +92,57 @@ def resolve_groups(matches: pd.DataFrame, elo) -> tuple[dict[str, list[str]], st
     if inferred is not None:
         return inferred, "inferred from completed round-robin"
     return _snake_draft(matches, elo), "Elo-seeded snake draft (reconstructed)"
+
+
+def group_stage_complete(matches: pd.DataFrame,
+                         groups: dict[str, list[str]]) -> bool:
+    """True if every group has played its full 6-game round-robin."""
+    wc = matches[_is_2026_wc(matches)]
+    played = {frozenset((h, a))
+              for h, a in zip(wc["home_team"], wc["away_team"])}
+    from itertools import combinations
+    for teams in groups.values():
+        for a, b in combinations(teams, 2):
+            if frozenset((a, b)) not in played:
+                return False
+    return True
+
+
+def actual_knockout_bracket(matches: pd.DataFrame,
+                            groups: dict[str, list[str]],
+                            seed: int = 2026) -> list[str] | None:
+    """Build the real Round-of-32 bracket from completed group results.
+
+    Returns the 32-team bracket order (using the official FIFA structure) once
+    the group stage is complete, else None. The bracket is then locked into the
+    simulation so knockout forecasts are conditioned on the actual qualifiers.
+    """
+    import numpy as np
+    from src.simulation.standings import Group, select_best_thirds
+    from src.simulation.bracket_2026 import build_bracket as build_bracket_2026
+    from src.simulation.bracket_2026 import is_official_layout
+
+    if not group_stage_complete(matches, groups):
+        return None
+    if not (is_official_layout(groups.keys()) and len(groups) == 12):
+        return None
+
+    wc = matches[_is_2026_wc(matches)]
+    rng = np.random.default_rng(seed)
+    winners, runners, third_group, thirds = {}, {}, {}, []
+    for gn, teams in groups.items():
+        g = Group(gn, teams)
+        for m in wc.itertuples(index=False):
+            if m.home_team in teams and m.away_team in teams:
+                g.play(m.home_team, m.away_team,
+                       int(m.home_goals), int(m.away_goals))
+        table = g.standings(rng)
+        winners[gn] = table[0].team
+        runners[gn] = table[1].team
+        third_group[table[2].team] = gn
+        thirds.append(table[2])
+
+    best = select_best_thirds(thirds, 8, rng)
+    third_pairs = [(third_group[r.team], r.team) for r in best]
+    return build_bracket_2026(winners, runners, third_pairs)
+
