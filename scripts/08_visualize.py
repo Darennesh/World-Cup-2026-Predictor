@@ -36,7 +36,8 @@ from src.simulation.groups_2026 import resolve_groups, actual_knockout_bracket  
 from src.simulation.bracket import build_expected_bracket  # noqa: E402
 from src.simulation.group_forecast import (forecast_group,  # noqa: E402
                                            played_results_for)
-from src.simulation.fixtures import upcoming_fixtures, load_schedule  # noqa: E402
+from src.simulation.fixtures import (upcoming_fixtures, load_schedule,  # noqa: E402
+                                     upcoming_knockout_fixtures)
 from src.evaluation.tracker import (update_log, summarize,  # noqa: E402
                                     OUTCOME_LABELS, PREDICTIONS_START)
 from src.visualization.plots import (plot_bracket, plot_champion_bar,  # noqa: E402
@@ -144,8 +145,11 @@ def _group_forecast_html(forecasts: list, form_map: dict[str, list[str]]) -> str
 def _upcoming_html(fixtures: list) -> str:
     """Render upcoming fixtures with EAT kickoff and the live prediction."""
     if not fixtures:
-        return ("<p style='color:#666'>No upcoming group-stage fixtures &mdash; "
-                "the group stage is complete.</p>")
+        return ("<p style='color:#666'>No upcoming fixtures &mdash; "
+                "the next round's matchups are still being decided.</p>")
+
+    knockout = any(getattr(f, "is_knockout", False) for f in fixtures)
+    col_label = "Round" if knockout else "Grp"
 
     n_timed = sum(1 for f in fixtures if f.kickoff_utc is not None)
     note = ("" if n_timed == fixtures.__len__() else
@@ -158,10 +162,11 @@ def _upcoming_html(fixtures: list) -> str:
     for f in fixtures:
         fav = ("Draw" if f.favourite == "Draw"
                else f"<b>{with_flag(f.favourite)}</b>")
-        conf = max(f.p_home, f.p_draw, f.p_away)
+        conf = (max(f.p_home, f.p_away) if getattr(f, "is_knockout", False)
+                else max(f.p_home, f.p_draw, f.p_away))
         rows.append(
             f"<tr><td style='white-space:nowrap'>{f.eat_label}</td>"
-            f"<td style='text-align:center;color:var(--muted)'>{f.group}</td>"
+            f"<td style='text-align:center;color:var(--muted);white-space:nowrap'>{f.group}</td>"
             f"<td style='text-align:right'>{with_flag(f.home)}</td>"
             f"<td style='text-align:center;color:var(--muted)'>"
             f"{f.exp_home:.1f}&ndash;{f.exp_away:.1f}</td>"
@@ -170,7 +175,7 @@ def _upcoming_html(fixtures: list) -> str:
             f"<td>{fav} <span style='color:var(--muted)'>({conf:.0%})</span></td></tr>"
         )
     table = (
-        "<table><thead><tr><th>Kickoff (EAT)</th><th>Grp</th>"
+        f"<table><thead><tr><th>Kickoff (EAT)</th><th>{col_label}</th>"
         "<th style='text-align:right'>Home</th><th>xScore</th><th>Away</th>"
         "<th>W / D / L</th><th>Prediction</th></tr></thead><tbody>"
         + "".join(rows) + "</tbody></table>"
@@ -267,6 +272,8 @@ def _next_match_html(f) -> str:
     pick = ("an even contest" if f.favourite == "Draw"
             else f"<b>{with_flag(f.favourite)}</b> favoured")
     conf = max(f.p_home, f.p_draw, f.p_away)
+    # Knockouts label the round directly; group games prefix "Group".
+    stage = f.group if getattr(f, "is_knockout", False) else f"Group {f.group}"
     # ISO kickoff for the client-side countdown (omitted if time unknown).
     cd = ""
     if f.kickoff_utc is not None:
@@ -275,7 +282,7 @@ def _next_match_html(f) -> str:
               f"&#9203; kickoff time loading…</div>")
     return (
         "<div class='nextmatch'>"
-        f"<div class='nm-when'>&#9201; {f.eat_label} &middot; Group {f.group}</div>"
+        f"<div class='nm-when'>&#9201; {f.eat_label} &middot; {stage}</div>"
         f"<div class='nm-teams'>{with_flag(f.home)} <span class='nm-v'>vs</span> "
         f"{with_flag(f.away)}</div>"
         f"{cd}"
@@ -447,9 +454,16 @@ def main() -> None:
 
     print("Computing upcoming fixtures with EAT kickoff + live predictions ...")
     schedule = load_schedule()
-    upcoming = upcoming_fixtures(model, matches, groups, schedule)
-    n_timed = sum(1 for f in upcoming if f.kickoff_utc is not None)
-    print(f"  {len(upcoming)} upcoming fixtures ({n_timed} with scheduled times)")
+    if locked is not None:
+        # Group stage done -> show the next knockout ties (participants decided).
+        upcoming = upcoming_knockout_fixtures(model, matches, groups, locked,
+                                              schedule)
+        print(f"  {len(upcoming)} upcoming knockout fixture(s).")
+    else:
+        upcoming = upcoming_fixtures(model, matches, groups, schedule)
+        n_timed = sum(1 for f in upcoming if f.kickoff_utc is not None)
+        print(f"  {len(upcoming)} upcoming group fixtures "
+              f"({n_timed} with scheduled times).")
 
     print("Updating model track record (walk-forward predictions vs actuals) ...")
     track_log = update_log(matches, features, TRACK_LOG)
@@ -768,7 +782,7 @@ def main() -> None:
 
 <section id="upcoming">
  <h2>Upcoming fixtures &amp; live predictions</h2>
- <p class="lead">Every remaining group fixture in EAT, with the model's live
+ <p class="lead">Every upcoming fixture in EAT, with the model's live
   win/draw/loss call and expected score.</p>
  <div class="tbl-scroll">{_upcoming_html(upcoming)}</div>
 </section>

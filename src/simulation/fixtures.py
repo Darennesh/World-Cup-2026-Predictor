@@ -45,6 +45,7 @@ class UpcomingFixture:
     exp_home: float
     exp_away: float
     kickoff_utc: datetime | None = None   # None when not yet scheduled
+    is_knockout: bool = False             # True for R32/R16/.../Final ties
 
     @property
     def kickoff_eat(self) -> datetime | None:
@@ -57,6 +58,10 @@ class UpcomingFixture:
 
     @property
     def favourite(self) -> str:
+        # Knockout ties always produce a winner (extra time / penalties), so the
+        # pick is the side more likely to win the tie, never "Draw".
+        if self.is_knockout:
+            return self.home if self.p_home >= self.p_away else self.away
         if self.p_home >= self.p_away and self.p_home >= self.p_draw:
             return self.home
         if self.p_away >= self.p_home and self.p_away >= self.p_draw:
@@ -161,4 +166,97 @@ def upcoming_fixtures(model, matches: pd.DataFrame,
     far_future = datetime.max.replace(tzinfo=timezone.utc)
     fixtures.sort(key=lambda f: (f.kickoff_utc or far_future, f.group,
                                  f.home))
+    return fixtures
+
+
+def _team_groups(groups: dict[str, list[str]]) -> dict[str, str]:
+    return {t: g for g, teams in groups.items() for t in teams}
+
+
+def played_knockout_results(matches: pd.DataFrame,
+                            groups: dict[str, list[str]]):
+    """Return played knockout ties as a dict keyed by the unordered team pair.
+
+    A knockout match is a 2026 World Cup game between teams from *different*
+    groups (group-stage games are always within a single group), so this cleanly
+    separates the two phases without a fixtures list.
+    """
+    wc = matches[_is_2026_wc(matches)]
+    tg = _team_groups(groups)
+    out = {}
+    for m in wc.itertuples(index=False):
+        gh, ga = tg.get(m.home_team), tg.get(m.away_team)
+        if gh is not None and ga is not None and gh != ga:
+            out[_fixture_key(m.home_team, m.away_team)] = (
+                m.home_team, m.away_team, int(m.home_goals), int(m.away_goals))
+    return out
+
+
+def _round_labels_for(n: int) -> list[str]:
+    names = {32: "Round of 32", 16: "Round of 16", 8: "Quarter-final",
+             4: "Semi-final", 2: "Final"}
+    labels, size = [], n
+    while size >= 2:
+        labels.append(names.get(size, f"Last {size}"))
+        size //= 2
+    return labels
+
+
+def upcoming_knockout_fixtures(model, matches: pd.DataFrame,
+                               groups: dict[str, list[str]],
+                               bracket: list[str],
+                               schedule: dict[frozenset, datetime] | None = None
+                               ) -> list[UpcomingFixture]:
+    """Derive the next knockout ties whose participants are already decided.
+
+    Walks the locked Round-of-32 `bracket` round by round, advancing the actual
+    winner where a result exists. A tie is 'upcoming' when both its teams are
+    known (from earlier results or the locked R32 seeding) but it has not yet
+    been played. Returns those ties with live predictions, ordered by kickoff.
+    """
+    schedule = schedule if schedule is not None else load_schedule()
+    known = set(model.teams)
+    played = played_knockout_results(matches, groups)
+    labels = _round_labels_for(len(bracket))
+
+    fixtures: list[UpcomingFixture] = []
+    current = list(bracket)
+    ri = 0
+    while len(current) > 1:
+        rnd = labels[ri] if ri < len(labels) else f"Round of {len(current)}"
+        nxt = []
+        for k in range(0, len(current), 2):
+            a, b = current[k], current[k + 1]
+            if a is None or b is None:
+                nxt.append(None)
+                continue
+            res = played.get(_fixture_key(a, b))
+            if res is not None:
+                hh, aa, hg, ag = res
+                if hg > ag:
+                    winner = hh
+                elif ag > hg:
+                    winner = aa
+                else:
+                    # Draw in the data (knockout decided on penalties, not
+                    # recorded) -> advance the model's favourite.
+                    ph, _, pa, _, _ = _predict(model, a, b)
+                    winner = a if ph >= pa else b
+                nxt.append(winner)
+            else:
+                nxt.append(None)
+                # Both teams known but unplayed -> an upcoming fixture.
+                if a in known and b in known:
+                    ph, pd_, pa, eh, ea = _predict(model, a, b)
+                    fixtures.append(UpcomingFixture(
+                        group=rnd, home=a, away=b,
+                        p_home=ph, p_draw=pd_, p_away=pa,
+                        exp_home=eh, exp_away=ea,
+                        kickoff_utc=schedule.get(_fixture_key(a, b)),
+                        is_knockout=True))
+        current = nxt
+        ri += 1
+
+    far_future = datetime.max.replace(tzinfo=timezone.utc)
+    fixtures.sort(key=lambda f: (f.kickoff_utc or far_future, f.home))
     return fixtures

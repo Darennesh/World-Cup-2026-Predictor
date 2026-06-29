@@ -65,3 +65,21 @@ fixtures:
   "DR Congo vs Uzbekistan": 2026-06-27T23:30:00Z # 12.30am BST Sun -> 2.30am EAT
   "Algeria vs Austria": 2026-06-28T02:00:00Z # 3am BST -> 5am EAT
   "Jordan vs Argentina": 2026-06-28T02:00:00Z # 3am BST -> 5am EAT
+
+  # ===== Round of 32 (actual matchups; times UK BST -> UTC) =====
+  "South Africa vs Canada": 2026-06-28T19:00:00Z      # M73 8pm BST -> 10pm EAT
+  "Brazil vs Japan": 2026-06-29T17:00:00Z             # M76 6pm BST -> 8pm EAT
+  "Germany vs Paraguay": 2026-06-29T20:30:00Z         # M74 9.30pm BST -> 11.30pm EAT
+  "Netherlands vs Morocco": 2026-06-30T01:00:00Z      # M75 2am BST -> 4am EAT
+  "Ivory Coast vs Norway": 2026-06-30T17:00:00Z       # M78 6pm BST -> 8pm EAT
+  "France vs Sweden": 2026-06-30T21:00:00Z            # M77 10pm BST -> 12am EAT (+1d)
+  "Mexico vs Senegal": 2026-07-01T01:00:00Z           # M79 2am BST -> 4am EAT
+  "England vs DR Congo": 2026-07-01T16:00:00Z         # M80 5pm BST -> 7pm EAT
+  "Belgium vs Ecuador": 2026-07-01T20:00:00Z          # M82 9pm BST -> 11pm EAT
+  "United States vs Bosnia and Herzegovina": 2026-07-02T00:00:00Z  # M81 1am BST -> 3am EAT
+  "Spain vs Austria": 2026-07-02T19:00:00Z            # M84 8pm BST -> 10pm EAT
+  "Portugal vs Croatia": 2026-07-02T23:00:00Z         # M83 12am BST Fri -> 2am EAT
+  "Switzerland vs Algeria": 2026-07-03T03:00:00Z      # M85 4am BST -> 6am EAT
+  "Australia vs Egypt": 2026-07-03T18:00:00Z          # M88 7pm BST -> 9pm EAT
+  "Argentina vs Cape Verde": 2026-07-03T22:00:00Z     # M86 11pm BST -> 1am EAT (+1d)
+  "Colombia vs Ghana": 2026-07-04T01:30:00Z           # M87 2.30am BST -> 4.30am EAT

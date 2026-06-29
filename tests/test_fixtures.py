@@ -86,3 +86,41 @@ def test_favourite_is_highest_probability():
         best = max((f.p_home, f.home), (f.p_away, f.away),
                    (f.p_draw, "Draw"), key=lambda x: x[0])[1]
         assert f.favourite == best
+
+
+# ---- Knockout fixtures ----------------------------------------------------
+def _ko_groups():
+    return {"A": ["A1", "A2", "A3", "A4"], "B": ["B1", "B2", "B3", "B4"]}
+
+
+def _ko_matches():
+    # One cross-group knockout tie already played (A1 beat B2 2-0); A3 vs B4
+    # is an unplayed knockout tie.
+    rows = [{
+        "date": pd.Timestamp("2026-06-29"), "home_team": "A1", "away_team": "B2",
+        "home_goals": 2, "away_goals": 0, "neutral": True,
+        "importance": 1.0, "tournament": "FIFA World Cup", "outcome": 0,
+    }]
+    return pd.DataFrame(rows)
+
+
+def test_played_knockout_detects_cross_group():
+    from src.simulation.fixtures import played_knockout_results
+    played = played_knockout_results(_ko_matches(), _ko_groups())
+    assert _fixture_key("A1", "B2") in played
+    # An intra-group pair must NOT be treated as knockout.
+    assert _fixture_key("A1", "A2") not in played
+
+
+def test_upcoming_knockout_marks_round_and_skips_played():
+    from src.simulation.fixtures import upcoming_knockout_fixtures
+    model = FixedModel(["A1", "B2", "A3", "B4"])
+    bracket = ["A1", "B2", "A3", "B4"]      # 4-team mini-knockout
+    up = upcoming_knockout_fixtures(model, _ko_matches(), _ko_groups(), bracket, {})
+    pairs = {frozenset((f.home, f.away)) for f in up}
+    # A1 vs B2 already played -> excluded; A3 vs B4 is upcoming.
+    assert frozenset(("A1", "B2")) not in pairs
+    assert frozenset(("A3", "B4")) in pairs
+    assert all(f.is_knockout for f in up)
+    assert all(f.favourite != "Draw" for f in up)   # knockouts have a winner
+
