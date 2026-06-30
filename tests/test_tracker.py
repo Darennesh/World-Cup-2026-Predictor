@@ -138,3 +138,26 @@ def test_fixtures_before_start_date_excluded(tmp_path: Path):
 
 def test_summarize_empty():
     assert summarize(load_log(Path("does_not_exist.csv")))["n"] == 0
+
+
+def test_actuals_refresh_corrects_stale_score(tmp_path: Path):
+    """A logged game whose score was provisionally wrong gets corrected from
+    current data, while its locked prediction stays unchanged."""
+    matches, features = _history_and_wc()
+    log_path = tmp_path / "log.csv"
+    log = update_log(matches, features, log_path)
+    probs_before = log[["p_home", "p_draw", "p_away"]].to_numpy().copy()
+
+    # Corrupt one logged actual score on disk (simulating a stale/penalty score).
+    saved = pd.read_csv(log_path)
+    saved.loc[0, "home_goals"] = 9
+    saved.loc[0, "away_goals"] = 9
+    saved.to_csv(log_path, index=False)
+
+    # Re-run: actuals refresh from `matches`, predictions stay locked.
+    log2 = update_log(matches, features, log_path)
+    row = log2[(log2["home_team"] == "Alpha") & (log2["away_team"] == "Delta")].iloc[0]
+    assert int(row["home_goals"]) == 3 and int(row["away_goals"]) == 0   # corrected
+    np.testing.assert_allclose(
+        log2[["p_home", "p_draw", "p_away"]].to_numpy(), probs_before)
+

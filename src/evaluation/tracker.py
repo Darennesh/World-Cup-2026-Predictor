@@ -110,6 +110,54 @@ def _dedup(log: pd.DataFrame) -> pd.DataFrame:
     return log.iloc[keep].reset_index(drop=True)
 
 
+def _refresh_actuals(log: pd.DataFrame, wc: pd.DataFrame) -> pd.DataFrame:
+    """Refresh the *actual* result of every logged game from current data.
+
+    Predictions (p_home/draw/away, pred_*) stay locked -- they were made before
+    kickoff and must never change. But the actual score can be provisional or
+    corrected upstream (e.g. a penalty score briefly logged as goals, or a late
+    data fix), so we always re-read home_goals/away_goals from the latest data
+    and recompute the realised outcome, hit flag, and RPS. Matching is on the
+    unordered team pair within +/-1 day to tolerate cross-source date skew.
+    """
+    if log.empty or wc.empty:
+        return log
+
+    # Index current results by sorted team pair -> (date, hg, ag), keeping the
+    # most recent record per pair.
+    cur = {}
+    for m in wc.sort_values("date").itertuples(index=False):
+        key = tuple(sorted([str(m.home_team), str(m.away_team)]))
+        cur[key] = (pd.Timestamp(m.date), str(m.home_team),
+                    int(m.home_goals), int(m.away_goals))
+
+    log = log.copy()
+    changed = False
+    for idx in log.index:
+        h, a = str(log.at[idx, "home_team"]), str(log.at[idx, "away_team"])
+        rec = cur.get(tuple(sorted([h, a])))
+        if rec is None:
+            continue
+        _, src_home, shg, sag = rec
+        # Orient the source score to this row's (home, away) order.
+        hg, ag = (shg, sag) if src_home == h else (sag, shg)
+        if (int(log.at[idx, "home_goals"]) == hg
+                and int(log.at[idx, "away_goals"]) == ag):
+            continue                          # already correct
+        act_out = _outcome(hg, ag)
+        probs = np.array([[float(log.at[idx, "p_home"]),
+                           float(log.at[idx, "p_draw"]),
+                           float(log.at[idx, "p_away"])]])
+        log.at[idx, "home_goals"] = hg
+        log.at[idx, "away_goals"] = ag
+        log.at[idx, "actual_outcome"] = act_out
+        log.at[idx, "correct"] = int(int(log.at[idx, "pred_outcome"]) == act_out)
+        log.at[idx, "rps"] = ranked_probability_score(probs, np.array([act_out]))
+        changed = True
+    log.attrs["_changed"] = changed
+    return log
+
+
 def _key(df: pd.DataFrame) -> set:
     return {
         (pd.Timestamp(d).strftime("%Y-%m-%d"), h, a)
@@ -138,7 +186,10 @@ def update_log(matches: pd.DataFrame, features: pd.DataFrame,
         before = len(log)
         log = log[log["date"] >= PREDICTIONS_START].reset_index(drop=True)
         log = _dedup(log)
-        if len(log) != before:
+        # Refresh actual results from current data (corrects stale/provisional
+        # scores; predictions stay locked).
+        log = _refresh_actuals(log, wc)
+        if len(log) != before or log.attrs.get("_changed"):
             Path(log_path).parent.mkdir(parents=True, exist_ok=True)
             log.to_csv(log_path, index=False)
     have = _key(log)
@@ -188,7 +239,10 @@ def update_log(matches: pd.DataFrame, features: pd.DataFrame,
 
     if new_rows:
         log = pd.concat([log, pd.DataFrame(new_rows)], ignore_index=True)
-        log = _coerce(log).sort_values("date").reset_index(drop=True)
+        log = _coerce(log)
+        # Collapse any cross-source duplicate that the new rows introduced
+        # (same tie logged under a slightly different date by another source).
+        log = _dedup(log).sort_values("date").reset_index(drop=True)
         Path(log_path).parent.mkdir(parents=True, exist_ok=True)
         log.to_csv(log_path, index=False)
     return log
