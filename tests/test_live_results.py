@@ -2,7 +2,8 @@
 import pandas as pd
 
 from src.data.live_results import (_map_team, merge_live_into_mirror,
-                                   fetch_live_results)
+                                   fetch_live_results, shootouts_to_meta,
+                                   load_knockout_meta)
 
 
 def test_team_name_mapping():
@@ -11,6 +12,23 @@ def test_team_name_mapping():
     assert _map_team("Türkiye") == "Turkey"
     assert _map_team("Cape Verde Islands") == "Cape Verde"
     assert _map_team("Brazil") == "Brazil"        # unknown passes through
+
+
+def test_shootouts_to_meta_records_2026_winners(tmp_path):
+    shootouts = tmp_path / "shootouts.csv"
+    shootouts.write_text(
+        "date,home_team,away_team,winner,first_shooter\n"
+        "2018-07-03,Croatia,Denmark,Croatia,Denmark\n"      # pre-2026, ignored
+        "2026-06-29,Germany,Paraguay,Paraguay,Germany\n"
+        "2026-06-29,Netherlands,Morocco,Morocco,Netherlands\n",
+        encoding="utf-8")
+    meta_path = tmp_path / "knockout_meta.json"
+    n = shootouts_to_meta(shootouts, meta_path)
+    assert n == 2                                  # only the two 2026 ties
+    meta = load_knockout_meta(meta_path)
+    assert meta["Germany|Paraguay"]["winner"] == "Paraguay"
+    assert meta["Morocco|Netherlands"]["winner"] == "Morocco"
+    assert all(v["shootout"] for v in meta.values())
 
 
 def test_fetch_without_key_returns_empty(monkeypatch):

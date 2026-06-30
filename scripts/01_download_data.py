@@ -30,7 +30,15 @@ GITHUB_URL = (
     "https://raw.githubusercontent.com/martj42/international_results/"
     "master/results.csv"
 )
+# Penalty-shootout winners (no auth) -- the results file holds only the
+# full-time score, so this side-file tells us who actually advanced from a
+# knockout draw (e.g. Germany 1-1 Paraguay -> Paraguay on penalties).
+SHOOTOUTS_URL = (
+    "https://raw.githubusercontent.com/martj42/international_results/"
+    "master/shootouts.csv"
+)
 TARGET = RAW_DIR / "results.csv"
+SHOOTOUTS_TARGET = RAW_DIR / "shootouts.csv"
 
 MANUAL_MSG = f"""
 Could not fetch automatically. To get the real dataset:
@@ -147,6 +155,21 @@ def merge_live_results() -> None:
         print(f"[live] merge skipped ({exc}).")
 
 
+def fetch_shootouts() -> None:
+    """Download the no-auth shootouts.csv and fold its winners into the
+    knockout meta, so the bracket advances the real penalty winner."""
+    try:
+        import requests
+        from src.data.live_results import shootouts_to_meta
+        resp = requests.get(SHOOTOUTS_URL, timeout=60)
+        resp.raise_for_status()
+        SHOOTOUTS_TARGET.write_bytes(resp.content)
+        n = shootouts_to_meta(SHOOTOUTS_TARGET)
+        print(f"[shootouts] recorded {n} 2026 World Cup shootout winner(s).")
+    except Exception as exc:
+        print(f"[shootouts] fetch skipped ({exc}).")
+
+
 def main() -> None:
     want_sample = "--sample" in sys.argv
     force = "--force" in sys.argv
@@ -154,12 +177,14 @@ def main() -> None:
     if TARGET.exists() and not force:
         print(f"Raw dataset already present: {TARGET} (use --force to replace)")
         merge_live_results()
+        fetch_shootouts()
         return
 
     # Preferred: no-auth GitHub mirror.
     if try_github():
         print(f"Downloaded real dataset to {TARGET}")
         merge_live_results()
+        fetch_shootouts()
         return
 
     # Fallback: Kaggle API (needs kaggle.json).

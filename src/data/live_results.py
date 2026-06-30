@@ -139,10 +139,41 @@ def load_knockout_meta(path=KNOCKOUT_META_PATH) -> dict:
 def _save_knockout_meta(updates: dict, path=KNOCKOUT_META_PATH) -> None:
     """Merge new shootout records into the side-file (keeps past results)."""
     meta = load_knockout_meta(path)
-    meta.update(updates)
+    # Merge per key so a winner-only record (from shootouts.csv) does not wipe
+    # out richer pen-score fields already captured from the API, and vice versa.
+    for k, v in updates.items():
+        existing = meta.get(k, {})
+        existing.update({kk: vv for kk, vv in v.items() if vv is not None})
+        meta[k] = existing
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(meta, indent=2, ensure_ascii=False),
                     encoding="utf-8")
+
+
+def shootouts_to_meta(path, meta_path=KNOCKOUT_META_PATH) -> int:
+    """Fold 2026 World Cup penalty-shootout winners from shootouts.csv into the
+    knockout meta side-file. Returns the number of 2026 shootouts recorded.
+
+    shootouts.csv columns: date, home_team, away_team, winner, first_shooter.
+    It carries the *winner* but not the pen score, which is enough to advance
+    the correct team in the bracket; pen scores (if any) come from the API.
+    """
+    try:
+        df = pd.read_csv(path)
+    except Exception:
+        return 0
+    df = df[pd.to_datetime(df["date"], errors="coerce") >= "2026-06-01"]
+    updates = {}
+    for r in df.itertuples(index=False):
+        home = _map_team(str(r.home_team))
+        away = _map_team(str(r.away_team))
+        winner = _map_team(str(r.winner))
+        updates[_pair_key(home, away)] = {
+            "home": home, "away": away, "winner": winner, "shootout": True,
+        }
+    if updates:
+        _save_knockout_meta(updates, meta_path)
+    return len(updates)
 
 
 def merge_live_into_mirror(mirror: pd.DataFrame,

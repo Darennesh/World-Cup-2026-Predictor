@@ -42,6 +42,7 @@ class Game:
     played: bool = False           # True once the real result is in the data
     actual: tuple | None = None    # (home_goals, away_goals) when played
     pens: tuple | None = None      # (home_pens, away_pens) if a shootout
+    shootout: bool = False         # True if the tie was decided on penalties
 
     @property
     def p_winner(self) -> float:
@@ -167,7 +168,10 @@ def _bracket_from_seed(tt: Tournament, bracket: list[str],
                 winner = real if real is not None else (a if p_a >= 0.5 else b)
                 rec = (meta or {}).get("|".join(sorted([a, b])))
                 pens = ((rec["pens_home"], rec["pens_away"])
-                        if rec and "pens_home" in rec else None)
+                        if rec and rec.get("pens_home") is not None else None)
+                # A level full-time score that has a recorded winner was a
+                # shootout (even when the exact pen score is unavailable).
+                shootout = bool(hg == ag and rec and rec.get("winner"))
                 # Orient the actual score to the (a, b) display order.
                 actual = (hg, ag) if hh == a else (ag, hg)
                 if pens and hh != a:

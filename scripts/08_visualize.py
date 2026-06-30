@@ -214,18 +214,22 @@ def _track_record_html(log: pd.DataFrame, stats: dict, meta: dict | None = None)
         tick = ("<span class='pill pill-ok'>&#10004; hit</span>" if r.correct
                 else "<span class='pill pill-no'>&#10008; miss</span>")
         conf = max(r.p_home, r.p_draw, r.p_away)
-        # Annotate knockout shootouts: 'FT 1-1 (3-2 pens) Morocco'.
+        # Annotate knockout shootouts: 'FT 1-1 (3-2 pens) Morocco advance'
+        # (the pen score is shown when available, else just '(pens)').
         actual_cell = f"{int(r.home_goals)}&ndash;{int(r.away_goals)}"
         rec = (meta or {}).get("|".join(sorted([str(r.home_team), str(r.away_team)])))
-        if rec and rec.get("pens_home") is not None and int(r.home_goals) == int(r.away_goals):
-            # Orient pens to the logged home/away order.
-            if rec["home"] == r.home_team:
-                ph, pa = rec["pens_home"], rec["pens_away"]
+        if rec and rec.get("winner") and int(r.home_goals) == int(r.away_goals):
+            if rec.get("pens_home") is not None:
+                if rec.get("home") == r.home_team:
+                    ph, pa = rec["pens_home"], rec["pens_away"]
+                else:
+                    ph, pa = rec["pens_away"], rec["pens_home"]
+                pens_txt = f"{ph}&ndash;{pa} pens"
             else:
-                ph, pa = rec["pens_away"], rec["pens_home"]
+                pens_txt = "pens"
             actual_cell = (f"FT {int(r.home_goals)}&ndash;{int(r.away_goals)} "
                            f"<span style='color:var(--muted);font-weight:600'>"
-                           f"({ph}&ndash;{pa} pens)</span><br>"
+                           f"({pens_txt})</span><br>"
                            f"<span style='font-size:.72rem;color:var(--win-c)'>"
                            f"{rec['winner']} advance</span>")
         rows.append(
@@ -334,8 +338,10 @@ def _bracket_html(bracket) -> str:
                 away_val = f"<b>{aa}</b>"
                 pen_tag = ""
                 if getattr(g, "pens", None):
-                    pen_tag = (f"<div class='bx-pen'>pens "
-                               f"{g.pens[0]}&ndash;{g.pens[1]}</div>")
+                    pen_tag = (f"<div class='bx-pen'>{g.pens[0]}&ndash;{g.pens[1]} pens "
+                               f"&middot; {g.winner}</div>")
+                elif getattr(g, "shootout", False):
+                    pen_tag = f"<div class='bx-pen'>pens &middot; {g.winner}</div>"
                 cards.append(
                     "<div class='bx-tie bx-done'>"
                     f"<div class='bx-team {'bx-w' if home_w else ''}'>"
