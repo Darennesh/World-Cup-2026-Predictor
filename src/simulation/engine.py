@@ -55,7 +55,8 @@ class Tournament:
     """Holds the group definitions and runs Monte Carlo simulations."""
 
     def __init__(self, groups: dict[str, list[str]], sampler: ScoreSampler,
-                 best_thirds: int = 8, fixed_bracket: list[str] | None = None):
+                 best_thirds: int = 8, fixed_bracket: list[str] | None = None,
+                 played_ko: dict | None = None):
         self.group_defs = groups
         self.sampler = sampler
         self.all_teams = [t for teams in groups.values() for t in teams]
@@ -64,6 +65,10 @@ class Tournament:
         # forecast is then conditioned on what actually happened, not on
         # re-simulated group results.
         self.fixed_bracket = fixed_bracket
+        # Played knockout ties: {frozenset({teamA, teamB}): winner_team}. These
+        # are not re-simulated -- the real winner always advances -- so an
+        # eliminated favourite correctly drops to 0% champion probability.
+        self.played_ko = played_ko or {}
         # Adjust the number of qualifying thirds so the knockout bracket size
         # (2*groups + thirds) is a power of two. For the full 2026 format
         # (12 groups, 8 thirds) this leaves 8 unchanged -> a 32-team bracket.
@@ -138,7 +143,12 @@ class Tournament:
 
     def _run_knockout(self, bracket: list[str],
                       rng: np.random.Generator) -> dict[str, str]:
-        """Play single-elimination; return {team: furthest round reached}."""
+        """Play single-elimination; return {team: furthest round reached}.
+
+        Ties whose real result is known (self.played_ko) are not re-sampled --
+        the actual winner advances -- so the simulation is conditioned on the
+        knockout games already played.
+        """
         labels = round_labels(len(bracket))   # e.g. [R32, R16, QF, SF, Final, Champion]
         reached = {t: labels[0] for t in bracket}
         current = bracket
@@ -146,7 +156,9 @@ class Tournament:
         while len(current) > 1:
             winners = []
             for k in range(0, len(current), 2):
-                w = self._knockout_match(current[k], current[k + 1], rng)
+                a, b = current[k], current[k + 1]
+                real = self.played_ko.get(frozenset((a, b)))
+                w = real if real is not None else self._knockout_match(a, b, rng)
                 winners.append(w)
                 reached[w] = labels[ri]
             current = winners

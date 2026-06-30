@@ -124,3 +124,16 @@ def test_upcoming_knockout_marks_round_and_skips_played():
     assert all(f.is_knockout for f in up)
     assert all(f.favourite != "Draw" for f in up)   # knockouts have a winner
 
+
+def test_knockout_winner_resolves_goals_and_pens():
+    from src.simulation.fixtures import knockout_winner
+    # Decisive result -> team with more goals.
+    assert knockout_winner("Spain", "Morocco", 2, 1) == "Spain"
+    # Level result, no meta -> unknown.
+    assert knockout_winner("Spain", "Morocco", 1, 1) is None
+    # Level result + shootout meta -> the shootout winner.
+    meta = {"Morocco|Spain": {"home": "Spain", "away": "Morocco",
+                              "pens_home": 2, "pens_away": 3, "winner": "Morocco"}}
+    assert knockout_winner("Spain", "Morocco", 1, 1, meta) == "Morocco"
+
+

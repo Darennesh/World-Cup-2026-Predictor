@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import PROCESSED_DIR, ROOT  # noqa: E402
 from src.models.gbm import GBMModel  # noqa: E402
+from src.models.factory import build_model, MODEL_LABELS  # noqa: E402
 from src.ratings.bayesian import (fit_prior_then_update,  # noqa: E402
                                   group_results_2026)
 from src.ratings.adjustments import load_adjustments  # noqa: E402
@@ -37,7 +38,9 @@ from src.simulation.bracket import build_expected_bracket  # noqa: E402
 from src.simulation.group_forecast import (forecast_group,  # noqa: E402
                                            played_results_for)
 from src.simulation.fixtures import (upcoming_fixtures, load_schedule,  # noqa: E402
-                                     upcoming_knockout_fixtures)
+                                     upcoming_knockout_fixtures,
+                                     played_knockout_results, knockout_winner)
+from src.data.live_results import load_knockout_meta  # noqa: E402
 from src.evaluation.tracker import (update_log, summarize,  # noqa: E402
                                     OUTCOME_LABELS, PREDICTIONS_START)
 from src.visualization.plots import (plot_bracket, plot_champion_bar,  # noqa: E402
@@ -184,7 +187,7 @@ def _upcoming_html(fixtures: list) -> str:
 
 
 
-def _track_record_html(log: pd.DataFrame, stats: dict) -> str:
+def _track_record_html(log: pd.DataFrame, stats: dict, meta: dict | None = None) -> str:
     """Render the model's locked predictions vs actual results + summary stats."""
     if log.empty or stats.get("n", 0) == 0:
         return ("<p style='color:#666'>No completed group-stage fixtures logged "
@@ -211,6 +214,20 @@ def _track_record_html(log: pd.DataFrame, stats: dict) -> str:
         tick = ("<span class='pill pill-ok'>&#10004; hit</span>" if r.correct
                 else "<span class='pill pill-no'>&#10008; miss</span>")
         conf = max(r.p_home, r.p_draw, r.p_away)
+        # Annotate knockout shootouts: 'FT 1-1 (3-2 pens) Morocco'.
+        actual_cell = f"{int(r.home_goals)}&ndash;{int(r.away_goals)}"
+        rec = (meta or {}).get("|".join(sorted([str(r.home_team), str(r.away_team)])))
+        if rec and rec.get("pens_home") is not None and int(r.home_goals) == int(r.away_goals):
+            # Orient pens to the logged home/away order.
+            if rec["home"] == r.home_team:
+                ph, pa = rec["pens_home"], rec["pens_away"]
+            else:
+                ph, pa = rec["pens_away"], rec["pens_home"]
+            actual_cell = (f"FT {int(r.home_goals)}&ndash;{int(r.away_goals)} "
+                           f"<span style='color:var(--muted);font-weight:600'>"
+                           f"({ph}&ndash;{pa} pens)</span><br>"
+                           f"<span style='font-size:.72rem;color:var(--win-c)'>"
+                           f"{rec['winner']} advance</span>")
         rows.append(
             f"<tr><td style='white-space:nowrap'>{pd.Timestamp(r.date).strftime('%b %d')}</td>"
             f"<td style='text-align:right'>{with_flag(r.home_team)}</td>"
@@ -219,8 +236,7 @@ def _track_record_html(log: pd.DataFrame, stats: dict) -> str:
             f"<td>{with_flag(r.away_team)}</td>"
             f"<td style='min-width:140px'>{_wdl_chip(r.p_home, r.p_draw, r.p_away)}</td>"
             f"<td>{pred_lbl} <span style='color:var(--muted)'>({conf:.0%})</span></td>"
-            f"<td style='text-align:center;font-weight:700'>"
-            f"{int(r.home_goals)}&ndash;{int(r.away_goals)}</td>"
+            f"<td style='text-align:center;font-weight:700'>{actual_cell}</td>"
             f"<td style='text-align:center'>{tick}</td>"
             f"<td style='text-align:right;color:var(--muted)'>{r.rps:.3f}</td></tr>"
         )
@@ -311,16 +327,34 @@ def _bracket_html(bracket) -> str:
         cards = []
         for g in games:
             home_w = g.winner == g.home
-            cards.append(
-                "<div class='bx-tie'>"
-                f"<div class='bx-team {'bx-w' if home_w else ''}'>"
-                f"<span>{with_flag(g.home)}</span>"
-                f"<b>{g.p_home:.0%}</b></div>"
-                f"<div class='bx-team {'bx-w' if not home_w else ''}'>"
-                f"<span>{with_flag(g.away)}</span>"
-                f"<b>{1-g.p_home:.0%}</b></div>"
-                "</div>"
-            )
+            # Played ties show the real score (and shootout) instead of odds.
+            if getattr(g, "played", False) and g.actual is not None:
+                ah, aa = g.actual
+                home_val = f"<b>{ah}</b>"
+                away_val = f"<b>{aa}</b>"
+                pen_tag = ""
+                if getattr(g, "pens", None):
+                    pen_tag = (f"<div class='bx-pen'>pens "
+                               f"{g.pens[0]}&ndash;{g.pens[1]}</div>")
+                cards.append(
+                    "<div class='bx-tie bx-done'>"
+                    f"<div class='bx-team {'bx-w' if home_w else ''}'>"
+                    f"<span>{with_flag(g.home)}</span>{home_val}</div>"
+                    f"<div class='bx-team {'bx-w' if not home_w else ''}'>"
+                    f"<span>{with_flag(g.away)}</span>{away_val}</div>"
+                    f"{pen_tag}</div>"
+                )
+            else:
+                cards.append(
+                    "<div class='bx-tie'>"
+                    f"<div class='bx-team {'bx-w' if home_w else ''}'>"
+                    f"<span>{with_flag(g.home)}</span>"
+                    f"<b>{g.p_home:.0%}</b></div>"
+                    f"<div class='bx-team {'bx-w' if not home_w else ''}'>"
+                    f"<span>{with_flag(g.away)}</span>"
+                    f"<b>{1-g.p_home:.0%}</b></div>"
+                    "</div>"
+                )
         cols.append(
             f"<div class='bx-col'><div class='bx-rnd'>{rnd}</div>"
             f"{''.join(cards)}</div>"
@@ -405,19 +439,25 @@ def main() -> None:
     n_sims = 30_000
     if "--sims" in sys.argv:
         n_sims = int(sys.argv[sys.argv.index("--sims") + 1])
+    model_choice = "gbm"
+    if "--model" in sys.argv:
+        model_choice = sys.argv[sys.argv.index("--model") + 1]
 
     matches = pd.read_parquet(PROCESSED_DIR / "matches.parquet")
     features = pd.read_parquet(PROCESSED_DIR / "features.parquet")
 
     elo, update = fit_prior_then_update(matches)
-    print(f"Fitting model (2026 group matches applied: {update.n_group_matches}) ...")
-    model = GBMModel().fit(features, matches)
 
-    # Apply any curated team-news (injury/return) adjustments.
+    # Apply any curated team-news (injury/return) adjustments via the factory.
     adjustments = load_adjustments()
-    if adjustments:
-        model.apply_adjustments(adjustments)
-        print(f"Applied team-news adjustments: {adjustments}")
+    print(f"Fitting '{model_choice}' model "
+          f"(2026 group matches applied: {update.n_group_matches}) ...")
+    model, model_info = build_model(model_choice, features, matches, adjustments)
+    if model_info.get("adjustments"):
+        print(f"Applied team-news adjustments: {model_info['adjustments']}")
+    if model_info.get("weight") is not None:
+        print(f"Ensemble blend weight (mass on LightGBM): "
+              f"{model_info['weight']:.2f} (val RPS {model_info['val_rps']:.4f})")
 
     groups, source = resolve_groups(matches, elo)
     known = set(model.teams)
@@ -430,10 +470,20 @@ def main() -> None:
     # If the group stage is complete, lock the real Round-of-32 bracket so the
     # knockout forecast is conditioned on the actual qualifiers (not re-drawn).
     locked = actual_knockout_bracket(matches, groups)
+    ko_played, ko_winners, ko_meta = {}, {}, {}
     if locked is not None:
-        tt = Tournament(groups, sampler, fixed_bracket=locked)
+        # Played knockout ties: real winners advance and are not re-simulated,
+        # so eliminated teams correctly drop to 0% and the bracket tracks reality.
+        ko_meta = load_knockout_meta()
+        ko_played = played_knockout_results(matches, groups)
+        for pair, (hh, aa, hg, ag) in ko_played.items():
+            w = knockout_winner(hh, aa, hg, ag, ko_meta)
+            if w is not None:
+                ko_winners[pair] = w
+        tt = Tournament(groups, sampler, fixed_bracket=locked,
+                        played_ko=ko_winners)
         print(f"Group stage complete -> locked real R32 bracket "
-              f"({len(locked)} teams).")
+              f"({len(locked)} teams); {len(ko_winners)} knockout result(s) applied.")
     else:
         tt = Tournament(groups, sampler)
 
@@ -441,7 +491,7 @@ def main() -> None:
     pred = tt.run(n_sims=n_sims)
 
     print("Building expected bracket with per-game probabilities ...")
-    bracket = build_expected_bracket(tt)
+    bracket = build_expected_bracket(tt, played=ko_played, meta=ko_meta)
 
     print("Forecasting remaining group-stage matches ...")
     all_2026 = group_results_2026(matches)
@@ -680,6 +730,10 @@ def main() -> None:
  .bx-team:last-child {{ border-bottom:none; }}
  .bx-team.bx-w {{ color:var(--ink); font-weight:700;
    background:color-mix(in srgb,var(--win-c) 12%,transparent); }}
+ .bx-tie.bx-done {{ border-color:var(--win-c); }}
+ .bx-pen {{ font-size:.62rem; text-transform:uppercase; letter-spacing:.04em;
+   text-align:center; color:var(--muted); padding:2px 4px;
+   border-top:1px dashed var(--line); }}
  .bx-champ {{ justify-content:center; }}
  .bx-trophy {{ text-align:center; font-weight:800; color:var(--head);
    font-size:1.05rem; background:color-mix(in srgb,var(--gold) 18%,transparent);
@@ -798,7 +852,7 @@ def main() -> None:
  <h2>Model track record</h2>
  <p class="lead">Each pre-kickoff prediction (no look-ahead) scored against the
   actual result, since the model went live on {PREDICTIONS_START:%b %d, %Y}.</p>
- <div class="tbl-scroll">{_track_record_html(track_log, track_stats)}</div>
+ <div class="tbl-scroll">{_track_record_html(track_log, track_stats, ko_meta)}</div>
 </section>
 
 <section id="performance">
@@ -825,7 +879,7 @@ def main() -> None:
 </main>
 <footer>
  Forecasts are probabilistic; football is high-variance.
- &middot; Updated {updated}.
+ &middot; Model: {model_info['label']} &middot; Updated {updated}.
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
 <script>

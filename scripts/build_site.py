@@ -37,6 +37,9 @@ def main() -> None:
     n_sims = "30000"
     if "--sims" in sys.argv:
         n_sims = sys.argv[sys.argv.index("--sims") + 1]
+    model = None
+    if "--model" in sys.argv:
+        model = sys.argv[sys.argv.index("--model") + 1]
 
     # 1-2. Refresh data and rebuild processed tables.
     run(["scripts/01_download_data.py", "--force"])
@@ -44,7 +47,10 @@ def main() -> None:
     run(["-m", "src.data.features"])
 
     # 3. Generate the visualization stack.
-    run(["scripts/08_visualize.py", "--sims", n_sims])
+    viz_args = ["scripts/08_visualize.py", "--sims", n_sims]
+    if model:
+        viz_args += ["--model", model]
+    run(viz_args)
 
     # 4. Stage into public/.
     PUBLIC.mkdir(parents=True, exist_ok=True)

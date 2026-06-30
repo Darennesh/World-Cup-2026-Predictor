@@ -39,6 +39,9 @@ class Game:
     away: str
     p_home: float        # model probability the home/first team wins the tie
     winner: str
+    played: bool = False           # True once the real result is in the data
+    actual: tuple | None = None    # (home_goals, away_goals) when played
+    pens: tuple | None = None      # (home_pens, away_pens) if a shootout
 
     @property
     def p_winner(self) -> float:
@@ -85,11 +88,19 @@ def _tie_probability(tt: Tournament, a: str, b: str) -> float:
     return tt.sampler.win_probability(a, b, neutral=True)
 
 
-def build_expected_bracket(tt: Tournament) -> ExpectedBracket:
-    """Compute the modal bracket and per-game probabilities for a Tournament."""
+def build_expected_bracket(tt: Tournament, played: dict | None = None,
+                           meta: dict | None = None) -> ExpectedBracket:
+    """Compute the modal bracket and per-game probabilities for a Tournament.
+
+    `played` maps an unordered team-pair frozenset to (home, away, hg, ag) for
+    knockout ties already decided; `meta` carries shootout records. Where a tie
+    is played, the real winner advances (not the model favourite), so the
+    bracket tracks the actual tournament.
+    """
     # Group stage complete: use the locked, real Round-of-32 bracket directly.
     if getattr(tt, "fixed_bracket", None) is not None:
-        return _bracket_from_seed(tt, list(tt.fixed_bracket))
+        return _bracket_from_seed(tt, list(tt.fixed_bracket), played=played,
+                                  meta=meta)
 
     winners, runners, thirds = {}, {}, []
     third_group: dict[str, str] = {}     # team -> group letter
@@ -127,10 +138,14 @@ def build_expected_bracket(tt: Tournament) -> ExpectedBracket:
 
 
 def _bracket_from_seed(tt: Tournament, bracket: list[str],
-                       standings: dict[str, list[str]] | None = None
-                       ) -> ExpectedBracket:
+                       standings: dict[str, list[str]] | None = None,
+                       played: dict | None = None,
+                       meta: dict | None = None) -> ExpectedBracket:
     """Walk a fixed R32 seed order, recording per-tie win probabilities and
-    advancing the favourite, to produce the modal bracket to the Final."""
+    advancing the favourite -- or the *actual* winner where a tie has been
+    played -- to produce the bracket through to the Final."""
+    from src.simulation.fixtures import knockout_winner
+    played = played or {}
     labels = round_labels(len(bracket))   # e.g. [R32, R16, QF, SF, Final, Champion]
 
     games_by_round: dict[str, list[Game]] = {}
@@ -145,8 +160,25 @@ def _bracket_from_seed(tt: Tournament, bracket: list[str],
         for k in range(0, len(current), 2):
             a, b = current[k], current[k + 1]
             p_a = _tie_probability(tt, a, b)
-            winner = a if p_a >= 0.5 else b
-            games.append(Game(round=rnd, home=a, away=b, p_home=p_a, winner=winner))
+            res = played.get(frozenset((a, b)))
+            if res is not None:
+                hh, aa, hg, ag = res
+                real = knockout_winner(hh, aa, hg, ag, meta)
+                winner = real if real is not None else (a if p_a >= 0.5 else b)
+                rec = (meta or {}).get("|".join(sorted([a, b])))
+                pens = ((rec["pens_home"], rec["pens_away"])
+                        if rec and "pens_home" in rec else None)
+                # Orient the actual score to the (a, b) display order.
+                actual = (hg, ag) if hh == a else (ag, hg)
+                if pens and hh != a:
+                    pens = (pens[1], pens[0])
+                games.append(Game(round=rnd, home=a, away=b, p_home=p_a,
+                                  winner=winner, played=True, actual=actual,
+                                  pens=pens))
+            else:
+                winner = a if p_a >= 0.5 else b
+                games.append(Game(round=rnd, home=a, away=b, p_home=p_a,
+                                  winner=winner))
             nxt.append(winner)
         games_by_round[rnd] = games
         current = nxt

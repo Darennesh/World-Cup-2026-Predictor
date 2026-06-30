@@ -16,13 +16,20 @@ API: https://www.football-data.org/  (competition code "WC", free tier).
 """
 from __future__ import annotations
 
+import json
 import os
 
 import pandas as pd
 
+from src.config import PROCESSED_DIR
+
 API_URL = "https://api.football-data.org/v4/competitions/WC/matches"
 API_KEY_ENV = "FOOTBALL_DATA_API_KEY"
 TIMEOUT = 30
+
+# Knockout shootout / extra-time metadata that the mirror CSV cannot hold lives
+# in this side-file, keyed by the sorted "TeamA|TeamB" pair.
+KNOCKOUT_META_PATH = PROCESSED_DIR / "knockout_meta.json"
 
 # football-data.org names -> names used in our dataset (only where they differ).
 TEAM_NAME_MAP = {
@@ -76,11 +83,13 @@ def fetch_live_results(api_key: str | None = None) -> pd.DataFrame:
         return pd.DataFrame(columns=cols)
 
     rows = []
+    meta_updates = {}
     for m in payload.get("matches", []):
         if m.get("status") != "FINISHED":
             continue
-        score = m.get("score", {}).get("fullTime", {})
-        hg, ag = score.get("home"), score.get("away")
+        score = m.get("score", {}) or {}
+        full = score.get("fullTime", {}) or {}
+        hg, ag = full.get("home"), full.get("away")
         if hg is None or ag is None:
             continue
         home = _map_team((m.get("homeTeam") or {}).get("name", ""))
@@ -94,10 +103,46 @@ def fetch_live_results(api_key: str | None = None) -> pd.DataFrame:
             "tournament": "FIFA World Cup", "city": None, "country": None,
             "neutral": True,
         })
+        # Capture penalty shootout (knockout draws) and the resolved winner.
+        pens = score.get("penalties") or {}
+        ph, pa = pens.get("home"), pens.get("away")
+        if ph is not None and pa is not None:
+            winner = home if ph > pa else away
+            meta_updates[_pair_key(home, away)] = {
+                "home": home, "away": away,
+                "ft_home": int(hg), "ft_away": int(ag),
+                "pens_home": int(ph), "pens_away": int(pa),
+                "winner": winner,
+            }
+
+    if meta_updates:
+        _save_knockout_meta(meta_updates)
 
     df = pd.DataFrame(rows, columns=cols)
-    print(f"[live] fetched {len(df)} finished 2026 World Cup match(es).")
+    print(f"[live] fetched {len(df)} finished 2026 World Cup match(es); "
+          f"{len(meta_updates)} shootout(s) recorded.")
     return df
+
+
+def _pair_key(a: str, b: str) -> str:
+    return "|".join(sorted([str(a), str(b)]))
+
+
+def load_knockout_meta(path=KNOCKOUT_META_PATH) -> dict:
+    """Return the persisted shootout metadata, or {} if none recorded."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_knockout_meta(updates: dict, path=KNOCKOUT_META_PATH) -> None:
+    """Merge new shootout records into the side-file (keeps past results)."""
+    meta = load_knockout_meta(path)
+    meta.update(updates)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(meta, indent=2, ensure_ascii=False),
+                    encoding="utf-8")
 
 
 def merge_live_into_mirror(mirror: pd.DataFrame,

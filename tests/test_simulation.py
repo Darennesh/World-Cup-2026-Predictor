@@ -93,3 +93,19 @@ def test_champion_prob_favours_strong_teams():
     # champion probability.
     top_team = order[0]
     assert df.set_index("team").loc[top_team, "P_Champion"] > 1 / 48
+
+
+def test_played_knockout_eliminates_favourite():
+    # An 8-team locked bracket where the strongest team (S0) is recorded as
+    # losing its first knockout tie -> its champion probability must be 0.
+    teams = [f"S{i}" for i in range(8)]
+    sampler = ScoreSampler(FixedModel(teams))
+    groups = {chr(65 + i): teams[i * 2:i * 2 + 2] + [f"X{i}a", f"X{i}b"]
+              for i in range(4)}
+    # Minimal Tournament with a fixed 8-team bracket; S0 is the top seed but is
+    # recorded as eliminated by S1 in the first round.
+    tt = Tournament(groups, sampler, fixed_bracket=teams,
+                    played_ko={frozenset(("S0", "S1")): "S1"})
+    df = tt.run(n_sims=400, seed=1).set_index("team")
+    assert df.loc["S0", "P_Champion"] == 0.0     # eliminated -> 0%
+    assert df.loc["S1", "P_Champion"] > 0.0      # advanced instead

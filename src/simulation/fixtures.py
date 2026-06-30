@@ -173,6 +173,25 @@ def _team_groups(groups: dict[str, list[str]]) -> dict[str, str]:
     return {t: g for g, teams in groups.items() for t in teams}
 
 
+def knockout_winner(home: str, away: str, hg: int, ag: int,
+                    meta: dict | None = None) -> str | None:
+    """Resolve who advanced from a played knockout tie.
+
+    Decided by goals when not level; a level score went to penalties, so the
+    winner is read from the shootout meta (football-data.org). Returns None when
+    the tie is level and no shootout record is available.
+    """
+    if hg > ag:
+        return home
+    if ag > hg:
+        return away
+    if meta:
+        rec = meta.get("|".join(sorted([home, away])))
+        if rec and rec.get("winner"):
+            return rec["winner"]
+    return None
+
+
 def played_knockout_results(matches: pd.DataFrame,
                             groups: dict[str, list[str]]):
     """Return played knockout ties as a dict keyed by the unordered team pair.
@@ -217,6 +236,8 @@ def upcoming_knockout_fixtures(model, matches: pd.DataFrame,
     schedule = schedule if schedule is not None else load_schedule()
     known = set(model.teams)
     played = played_knockout_results(matches, groups)
+    from src.data.live_results import load_knockout_meta
+    meta = load_knockout_meta()
     labels = _round_labels_for(len(bracket))
 
     fixtures: list[UpcomingFixture] = []
@@ -233,13 +254,10 @@ def upcoming_knockout_fixtures(model, matches: pd.DataFrame,
             res = played.get(_fixture_key(a, b))
             if res is not None:
                 hh, aa, hg, ag = res
-                if hg > ag:
-                    winner = hh
-                elif ag > hg:
-                    winner = aa
-                else:
-                    # Draw in the data (knockout decided on penalties, not
-                    # recorded) -> advance the model's favourite.
+                winner = knockout_winner(hh, aa, hg, ag, meta)
+                if winner is None:
+                    # Level tie, shootout result not yet available -> advance
+                    # the model's favourite as a placeholder until it lands.
                     ph, _, pa, _, _ = _predict(model, a, b)
                     winner = a if ph >= pa else b
                 nxt.append(winner)
