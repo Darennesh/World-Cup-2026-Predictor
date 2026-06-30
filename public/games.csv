@@ -1,5 +1,5 @@
 round,home,away,p_home,winner
-R32,Germany,Paraguay,0.6297330942286347,Germany
+R32,Germany,Paraguay,0.6297330942286347,Paraguay
 R32,France,Sweden,0.8688625879062003,France
 R32,South Africa,Canada,0.3269866643858157,Canada
 R32,Netherlands,Morocco,0.47950635017564214,Morocco
@@ -15,7 +15,7 @@ R32,Argentina,Cape Verde,0.8911995745937186,Argentina
 R32,Australia,Egypt,0.5976666664679766,Australia
 R32,Switzerland,Algeria,0.6317586532698864,Switzerland
 R32,Colombia,Ghana,0.8557008729850994,Colombia
-R16,Germany,France,0.26560925168629573,France
+R16,Paraguay,France,0.17841767101867062,France
 R16,Canada,Morocco,0.332703292757832,Morocco
 R16,Portugal,Spain,0.3474268716008383,Spain
 R16,United States,Belgium,0.23182736592527747,Belgium
