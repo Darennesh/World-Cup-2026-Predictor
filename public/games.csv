@@ -1,32 +1,32 @@
 round,home,away,p_home,winner
-R32,Germany,Paraguay,0.6550153806419983,Paraguay
-R32,France,Sweden,0.8837096617168653,France
-R32,South Africa,Canada,0.3536716525735142,Canada
-R32,Netherlands,Morocco,0.4441332144476597,Morocco
-R32,Portugal,Croatia,0.6489817335407861,Portugal
-R32,Spain,Austria,0.8191853717795267,Spain
-R32,United States,Bosnia and Herzegovina,0.8014525931467836,United States
-R32,Belgium,Ecuador,0.6910186196321328,Belgium
-R32,Brazil,Japan,0.6202253149832953,Brazil
-R32,Ivory Coast,Norway,0.3827050484054769,Norway
-R32,Mexico,Senegal,0.6707759906785242,Mexico
-R32,England,DR Congo,0.806526987730451,England
-R32,Argentina,Cape Verde,0.9019115645826443,Argentina
-R32,Australia,Egypt,0.4895504903499216,Egypt
-R32,Switzerland,Algeria,0.6898593858368596,Switzerland
-R32,Colombia,Ghana,0.8685077045627106,Colombia
-R16,Paraguay,France,0.1887593966132463,France
-R16,Canada,Morocco,0.3088841206873964,Morocco
-R16,Portugal,Spain,0.30570110073463985,Spain
-R16,United States,Belgium,0.3256322042757209,Belgium
-R16,Brazil,Norway,0.6736195305867139,Norway
-R16,Mexico,England,0.36381224737666423,England
-R16,Argentina,Egypt,0.7926160260281231,Argentina
-R16,Switzerland,Colombia,0.38001734792269665,Colombia
-QF,France,Morocco,0.6285319891510859,France
-QF,Spain,Belgium,0.718799776590523,Spain
-QF,Norway,England,0.3199768642419071,England
-QF,Argentina,Colombia,0.6199297232490915,Argentina
-SF,France,Spain,0.43453663590399483,Spain
-SF,England,Argentina,0.282042258590729,Argentina
-Final,Spain,Argentina,0.4444067913476334,Argentina
+R32,Germany,Paraguay,0.6413074303496611,Paraguay
+R32,France,Sweden,0.8811628927310421,France
+R32,South Africa,Canada,0.35216230700494466,Canada
+R32,Netherlands,Morocco,0.4131236231597848,Morocco
+R32,Portugal,Croatia,0.6110533477596739,Portugal
+R32,Spain,Austria,0.8226272929780339,Spain
+R32,United States,Bosnia and Herzegovina,0.772633072249585,United States
+R32,Belgium,Ecuador,0.7024078096398707,Belgium
+R32,Brazil,Japan,0.6268545633573103,Brazil
+R32,Ivory Coast,Norway,0.39320701962327953,Norway
+R32,Mexico,Senegal,0.6875338094923218,Mexico
+R32,England,DR Congo,0.8102658811660394,England
+R32,Argentina,Cape Verde,0.9058708303276364,Argentina
+R32,Australia,Egypt,0.47356846909519057,Egypt
+R32,Switzerland,Algeria,0.6961545400904651,Switzerland
+R32,Colombia,Ghana,0.856426651814596,Colombia
+R16,Paraguay,France,0.19563391312011086,France
+R16,Canada,Morocco,0.31628061910266114,Morocco
+R16,Portugal,Spain,0.33827286165308446,Spain
+R16,United States,Belgium,0.23778759681019762,Belgium
+R16,Brazil,Norway,0.6770558899820038,Norway
+R16,Mexico,England,0.35842770471956253,England
+R16,Argentina,Egypt,0.7932765445206496,Argentina
+R16,Switzerland,Colombia,0.37110969728545773,Colombia
+QF,France,Morocco,0.6116337881803615,France
+QF,Spain,Belgium,0.6591273543451102,Spain
+QF,Norway,England,0.2980497585722749,England
+QF,Argentina,Colombia,0.6151493184673036,Argentina
+SF,France,Spain,0.4714518075787708,Spain
+SF,England,Argentina,0.29937953394966604,Argentina
+Final,Spain,Argentina,0.4803491615389385,Argentina
