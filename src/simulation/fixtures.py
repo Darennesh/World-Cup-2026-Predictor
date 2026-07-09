@@ -98,6 +98,29 @@ def load_schedule(path: Path = SCHEDULE_PATH) -> dict[frozenset, datetime]:
     return out
 
 
+def load_round_schedule(path: Path = SCHEDULE_PATH) -> dict[str, list[datetime]]:
+    """Load round-level kickoff times for ties whose teams aren't known yet.
+
+    Lets the Semi-finals and Final be *pre-staged* before the participants are
+    decided. YAML shape (times UTC, in bracket order within a round):
+
+        rounds:
+          Semi-final: [2026-07-14T19:00:00Z, 2026-07-15T19:00:00Z]
+          Final: [2026-07-19T19:00:00Z]
+
+    Used as a fallback when a fixture has no exact "Home vs Away" entry: the
+    n-th tie of a round takes the n-th time listed for that round.
+    """
+    if not Path(path).exists():
+        return {}
+    data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    out: dict[str, list[datetime]] = {}
+    for rnd, times in (data.get("rounds") or {}).items():
+        parsed = [_parse_utc(t) for t in (times or [])]
+        out[str(rnd)] = [t for t in parsed if t is not None]
+    return out
+
+
 def _parse_utc(value) -> datetime | None:
     if value is None:
         return None
@@ -224,7 +247,8 @@ def _round_labels_for(n: int) -> list[str]:
 def upcoming_knockout_fixtures(model, matches: pd.DataFrame,
                                groups: dict[str, list[str]],
                                bracket: list[str],
-                               schedule: dict[frozenset, datetime] | None = None
+                               schedule: dict[frozenset, datetime] | None = None,
+                               round_schedule: dict[str, list[datetime]] | None = None
                                ) -> list[UpcomingFixture]:
     """Derive the next knockout ties whose participants are already decided.
 
@@ -232,8 +256,14 @@ def upcoming_knockout_fixtures(model, matches: pd.DataFrame,
     winner where a result exists. A tie is 'upcoming' when both its teams are
     known (from earlier results or the locked R32 seeding) but it has not yet
     been played. Returns those ties with live predictions, ordered by kickoff.
+
+    `round_schedule` supplies pre-staged round-level times (Semi-final, Final)
+    used when a tie has no exact team-pair kickoff yet -- so those ties still
+    show a date and sort correctly before their teams are known.
     """
     schedule = schedule if schedule is not None else load_schedule()
+    round_schedule = (round_schedule if round_schedule is not None
+                      else load_round_schedule())
     known = set(model.teams)
     played = played_knockout_results(matches, groups)
     from src.data.live_results import load_knockout_meta
@@ -245,6 +275,7 @@ def upcoming_knockout_fixtures(model, matches: pd.DataFrame,
     ri = 0
     while len(current) > 1:
         rnd = labels[ri] if ri < len(labels) else f"Round of {len(current)}"
+        round_idx = 0        # position of this tie within the round
         nxt = []
         for k in range(0, len(current), 2):
             a, b = current[k], current[k + 1]
@@ -266,12 +297,19 @@ def upcoming_knockout_fixtures(model, matches: pd.DataFrame,
                 # Both teams known but unplayed -> an upcoming fixture.
                 if a in known and b in known:
                     ph, pd_, pa, eh, ea = _predict(model, a, b)
+                    # Exact team-pair time if scheduled, else the round-level
+                    # pre-staged time for this tie's position in the round.
+                    kickoff = schedule.get(_fixture_key(a, b))
+                    if kickoff is None:
+                        times = round_schedule.get(rnd, [])
+                        if round_idx < len(times):
+                            kickoff = times[round_idx]
                     fixtures.append(UpcomingFixture(
                         group=rnd, home=a, away=b,
                         p_home=ph, p_draw=pd_, p_away=pa,
                         exp_home=eh, exp_away=ea,
-                        kickoff_utc=schedule.get(_fixture_key(a, b)),
-                        is_knockout=True))
+                        kickoff_utc=kickoff, is_knockout=True))
+            round_idx += 1
         current = nxt
         ri += 1
 

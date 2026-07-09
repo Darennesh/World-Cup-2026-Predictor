@@ -102,3 +102,14 @@ fixtures:
 
   # ===== Semi-finals / Final (times UK BST -> UTC; teams set as QFs finish) =====
   # Keyed by pair once known; SF July 14-15 (8pm BST), Final July 19 (8pm BST).
+
+# Round-level pre-staged kickoff times, used for ties whose teams aren't decided
+# yet (Semi-finals, Final). Times are UTC, listed in bracket order within a
+# round; the n-th tie of a round takes the n-th time here. Once the exact
+# "Home vs Away" pairing is known you can add it above for a precise entry.
+rounds:
+  Semi-final:
+    - 2026-07-14T19:00:00Z    # SF1: 8pm BST Tue Jul 14 -> 10pm EAT
+    - 2026-07-15T19:00:00Z    # SF2: 8pm BST Wed Jul 15 -> 10pm EAT
+  Final:
+    - 2026-07-19T19:00:00Z    # Final: 8pm BST Sun Jul 19 -> 10pm EAT

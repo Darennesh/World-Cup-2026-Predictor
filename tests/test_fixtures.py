@@ -137,3 +137,21 @@ def test_knockout_winner_resolves_goals_and_pens():
     assert knockout_winner("Spain", "Morocco", 1, 1, meta) == "Morocco"
 
 
+def test_round_schedule_prestages_semifinal_times():
+    from src.simulation.fixtures import upcoming_knockout_fixtures, _parse_utc
+    # 4-team bracket -> one Semi-final tie (teams known, unplayed).
+    model = FixedModel(["A", "B", "C", "D"])
+    bracket = ["A", "B", "C", "D"]
+    # No games played; pre-staged Semi-final time supplies the kickoff.
+    round_sched = {"Semi-final": [_parse_utc("2026-07-14T19:00:00Z")]}
+    matches = pd.DataFrame(columns=["date", "home_team", "away_team",
+                                    "home_goals", "away_goals", "neutral",
+                                    "importance", "tournament"])
+    up = upcoming_knockout_fixtures(model, matches, {"A": ["A", "B", "C", "D"]},
+                                    bracket, schedule={},
+                                    round_schedule=round_sched)
+    sf = [f for f in up if f.group == "Semi-final"]
+    assert sf and sf[0].kickoff_utc is not None      # time was pre-staged
+    assert "TBD" not in sf[0].eat_label
+
+
