@@ -144,5 +144,55 @@ def actual_knockout_bracket(matches: pd.DataFrame,
 
     best = select_best_thirds(thirds, 8, rng)
     third_pairs = [(third_group[r.team], r.team) for r in best]
-    return build_bracket_2026(winners, runners, third_pairs)
+    bracket = build_bracket_2026(winners, runners, third_pairs)
+
+    # FIFA's assignment of the 8 best thirds to R32 slots is combination-
+    # dependent and can differ from our seeding. Once R32 is played, reconcile
+    # each pairing with the actual game so the bracket matches reality (the
+    # fixed winner/runner-up slots stay; only mis-slotted thirds are corrected).
+    anchors = set(winners.values()) | set(runners.values())
+    bracket = _reconcile_r32_with_actual(matches, groups, bracket, anchors)
+    return bracket
+
+
+def _reconcile_r32_with_actual(matches: pd.DataFrame,
+                               groups: dict[str, list[str]],
+                               bracket: list[str],
+                               anchors: set[str]) -> list[str]:
+    """Correct seeded R32 pairings to match the games actually played.
+
+    Each team's real R32 opponent is its earliest knockout game. Where a seeded
+    pair was never played (a third slotted differently than FIFA did), the
+    anchor (group winner/runner-up, whose slot is fixed) keeps its place and the
+    opposing slot is set to whoever the anchor actually faced.
+    """
+    tg = {t: g for g, teams in groups.items() for t in teams}
+    wc = matches[_is_2026_wc(matches)].sort_values("date")
+
+    # First knockout (cross-group) opponent for each bracket team = R32 rival.
+    r32_opp: dict[str, str] = {}
+    for m in wc.itertuples(index=False):
+        gh, ga = tg.get(m.home_team), tg.get(m.away_team)
+        if gh is None or ga is None or gh == ga:
+            continue                                  # group-stage game
+        for x, y in ((m.home_team, m.away_team), (m.away_team, m.home_team)):
+            if x in bracket and x not in r32_opp:
+                r32_opp[x] = y
+
+    played_pairs = {frozenset((a, b))
+                    for a, b in [(m.home_team, m.away_team)
+                                 for m in wc.itertuples(index=False)]}
+
+    result = list(bracket)
+    for k in range(0, len(bracket), 2):
+        a, b = result[k], result[k + 1]
+        if frozenset((a, b)) in played_pairs:
+            continue                                  # pairing already correct
+        # Repair using the anchor's real opponent.
+        if a in anchors and r32_opp.get(a):
+            result[k + 1] = r32_opp[a]
+        elif b in anchors and r32_opp.get(b):
+            result[k] = r32_opp[b]
+    return result
+
 
