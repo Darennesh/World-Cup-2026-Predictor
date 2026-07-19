@@ -4,7 +4,7 @@ R32,France,Sweden,0.8867059995393314,France
 R32,South Africa,Canada,0.3502093208004739,Canada
 R32,Netherlands,Morocco,0.4531811173047742,Morocco
 R32,Portugal,Croatia,0.6435184347296217,Portugal
-R32,Spain,Austria,0.8408631459446019,Spain
+R32,Spain,Austria,0.8408631459446021,Spain
 R32,United States,Bosnia and Herzegovina,0.7762750615653213,United States
 R32,Belgium,Senegal,0.7473009672309285,Belgium
 R32,Brazil,Japan,0.6417988288479479,Brazil
@@ -20,12 +20,12 @@ R16,Canada,Morocco,0.34929013600997716,Morocco
 R16,Portugal,Spain,0.282732158139432,Spain
 R16,United States,Belgium,0.28515890507907315,Belgium
 R16,Brazil,Norway,0.6519720803453557,Norway
-R16,Mexico,England,0.29038300522300353,England
+R16,Mexico,England,0.2903830052230036,England
 R16,Argentina,Egypt,0.8535477720235608,Argentina
 R16,Switzerland,Colombia,0.43847146539129556,Switzerland
 QF,France,Morocco,0.5613415643574836,France
 QF,Spain,Belgium,0.7060908901730077,Spain
-QF,Norway,England,0.23174906588262675,England
+QF,Norway,England,0.23174906588262678,England
 QF,Argentina,Switzerland,0.787733725605799,Argentina
 SF,France,Spain,0.2545001053215157,Spain
 SF,England,Argentina,0.2818766471588421,Argentina
