@@ -1,8 +1,8 @@
 round,home,away,p_home,winner
 R32,Germany,Paraguay,0.6507796117986477,Paraguay
-R32,France,Sweden,0.8657988949588312,France
+R32,France,Sweden,0.8657988949588311,France
 R32,South Africa,Canada,0.3621613710767497,Canada
-R32,Netherlands,Morocco,0.4436739383692429,Morocco
+R32,Netherlands,Morocco,0.44367393836924285,Morocco
 R32,Portugal,Croatia,0.6292473776999243,Portugal
 R32,Spain,Austria,0.8379571893816266,Spain
 R32,United States,Bosnia and Herzegovina,0.754109299209153,United States
@@ -15,7 +15,7 @@ R32,Argentina,Cape Verde,0.8900120729345868,Argentina
 R32,Australia,Egypt,0.48701922027847955,Egypt
 R32,Switzerland,Algeria,0.664330734905993,Switzerland
 R32,Colombia,Ghana,0.8349512930937226,Colombia
-R16,Paraguay,France,0.24611880043998619,France
+R16,Paraguay,France,0.24611880043998616,France
 R16,Canada,Morocco,0.35517361077819676,Morocco
 R16,Portugal,Spain,0.31443395433579635,Spain
 R16,United States,Belgium,0.29123246699273164,Belgium
@@ -23,7 +23,7 @@ R16,Brazil,Norway,0.6371944721379493,Norway
 R16,Mexico,England,0.3042056920635515,England
 R16,Argentina,Egypt,0.8315332115885421,Argentina
 R16,Switzerland,Colombia,0.43352858219262125,Switzerland
-QF,France,Morocco,0.521637041355309,France
+QF,France,Morocco,0.5216370413553089,France
 QF,Spain,Belgium,0.7566752524730509,Spain
 QF,Norway,England,0.2569725126005591,England
 QF,Argentina,Switzerland,0.7599666061801182,Argentina
