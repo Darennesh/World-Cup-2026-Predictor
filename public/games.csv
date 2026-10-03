@@ -1,20 +1,20 @@
 round,home,away,p_home,winner
 R32,Germany,Paraguay,0.649310742247148,Paraguay
-R32,France,Sweden,0.8714896547975679,France
+R32,France,Sweden,0.871489654797568,France
 R32,South Africa,Canada,0.3513091534142563,Canada
 R32,Netherlands,Morocco,0.46074456754693494,Morocco
 R32,Portugal,Croatia,0.6221495397771176,Portugal
 R32,Spain,Austria,0.8452856223539764,Spain
-R32,United States,Bosnia and Herzegovina,0.773406927804557,United States
+R32,United States,Bosnia and Herzegovina,0.7734069278045568,United States
 R32,Belgium,Senegal,0.7354465680300828,Belgium
 R32,Brazil,Japan,0.6193095013172079,Brazil
 R32,Ivory Coast,Norway,0.3745402693320141,Norway
-R32,Mexico,Ecuador,0.6566440360246599,Mexico
+R32,Mexico,Ecuador,0.65664403602466,Mexico
 R32,England,DR Congo,0.8219449554126568,England
 R32,Argentina,Cape Verde,0.8978827671506878,Argentina
-R32,Australia,Egypt,0.5042722373112755,Egypt
+R32,Australia,Egypt,0.5042722373112754,Egypt
 R32,Switzerland,Algeria,0.6709814472402145,Switzerland
-R32,Colombia,Ghana,0.833140151617848,Colombia
+R32,Colombia,Ghana,0.8331401516178483,Colombia
 R16,Paraguay,France,0.2662268966463319,France
 R16,Canada,Morocco,0.347199018496279,Morocco
 R16,Portugal,Spain,0.3189282504314086,Spain
@@ -28,5 +28,5 @@ QF,Spain,Belgium,0.7641295149871838,Spain
 QF,Norway,England,0.2548274170346623,England
 QF,Argentina,Switzerland,0.7494384797910267,Argentina
 SF,France,Spain,0.26787012275072625,Spain
-SF,England,Argentina,0.3444932836253304,Argentina
+SF,England,Argentina,0.34449328362533044,Argentina
 Final,Spain,Argentina,0.559608993465055,Spain
